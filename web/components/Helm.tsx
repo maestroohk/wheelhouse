@@ -12,7 +12,7 @@ type Props = {
   onSend: (instruction: string) => Promise<boolean>;
 };
 
-const MODES: Mode[] = ["scout", "builder", "engineer"];
+const MODES: Mode[] = ["scout", "builder", "engineer", "night"];
 
 /** The one place instructions are typed. `@name` picks repos; the same instruction goes to each as its own mission. */
 export default function Helm({ repos, targets, mode, onTargets, onMode, onSend }: Props) {

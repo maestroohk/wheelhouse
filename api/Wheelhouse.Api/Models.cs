@@ -44,6 +44,8 @@ public static class MissionStatus
     public const string Queued = "queued";
     public const string Running = "running";
     public const string Checking = "checking";
+    public const string Shipping = "shipping";
+    public const string Shipped = "shipped";
     public const string NeedsInput = "needs_input";
     public const string Review = "review";
     public const string Done = "done";
@@ -52,7 +54,7 @@ public static class MissionStatus
     public const string Kept = "kept";
     public const string Discarded = "discarded";
 
-    public static bool IsActive(string s) => s is Queued or Running or Checking;
+    public static bool IsActive(string s) => s is Queued or Running or Checking or Shipping;
 }
 
 public static class MissionMode
@@ -61,7 +63,9 @@ public static class MissionMode
     public const string Builder = "builder";   // read + edit, isolated worktree
     public const string Engineer = "engineer"; // read + edit + build/test commands, isolated worktree
 
-    public static bool IsValid(string? m) => m is Scout or Builder or Engineer;
+    public const string Night = "night";       // unattended: gnhf loops an agent and commits each step on its own branch
+
+    public static bool IsValid(string? m) => m is Scout or Builder or Engineer or Night;
 }
 
 public sealed class Mission
@@ -99,6 +103,8 @@ public sealed class Mission
     public string? CommitSha { get; set; }
     public string? Error { get; set; }
     public string? Note { get; set; }
+    public ShipState? Ship { get; set; }
+    public string? PageUrl { get; set; }
 }
 
 public record CreateMissionRequest(List<string> RepoIds, string Instruction, string? Mode);
@@ -116,6 +122,8 @@ public sealed class Settings
     public int MissionMinutes { get; set; } = 30;
     public bool RunChecks { get; set; } = true;
     public bool UseTreehouse { get; set; } = true;
+    public int NightIterations { get; set; } = 8;
+    public int NightHours { get; set; } = 8;
     public List<string> Pinned { get; set; } = new();
 }
 

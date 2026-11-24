@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { duration, isActive, modeInfo, money, statusLabel, type Mission, type Status } from "@/lib/api";
+import { duration, isActive, modeInfo, money, statusLabel, stepLabel, type Mission, type Status } from "@/lib/api";
 
 export const statusTone = (s: Status) =>
-  s === "running" || s === "checking" || s === "queued" ? "run" : s === "needs_input" || s === "review" ? "wait" : s === "failed" ? "bad" : s === "done" || s === "kept" ? "ok" : "";
+  s === "running" || s === "checking" || s === "queued" || s === "shipping" ? "run" : s === "needs_input" || s === "review" ? "wait" : s === "failed" ? "bad" : s === "done" || s === "kept" || s === "shipped" ? "ok" : "";
 
 export function DiffStat({ m }: { m: Mission }) {
   if (m.files.length === 0) return null;
@@ -29,12 +29,27 @@ export function CheckPills({ m }: { m: Mission }) {
   );
 }
 
+/** The no-mistakes pipeline as a strip: one segment per step, so where it stands is read at a glance. */
+export function Pipeline({ m }: { m: Mission }) {
+  if (!m.ship || m.ship.steps.length === 0) return null;
+  return (
+    <ol className="pipe" aria-label="Shipping steps">
+      {m.ship.steps.map((s) => (
+        <li key={s.step} className={s.status} title={`${stepLabel[s.step] ?? s.step}: ${s.status.replace(/_/g, " ")}`}>
+          {stepLabel[s.step] ?? s.step}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 /** A button that asks once more before doing something that can't be undone. */
-export function Confirm({ label, sure, onConfirm, disabled }: { label: string; sure: string; onConfirm: () => void; disabled?: boolean }) {
+export function Confirm({ label, sure, onConfirm, disabled, tone = "danger", title }: { label: string; sure: string; onConfirm: () => void; disabled?: boolean; tone?: string; title?: string }) {
   const [armed, setArmed] = useState(false);
   return (
     <button
-      className={`btn danger${armed ? " armed" : ""}`}
+      className={`btn ${tone}${armed ? " armed" : ""}`}
+      title={title}
       disabled={disabled}
       onBlur={() => setArmed(false)}
       onClick={() => (armed ? (setArmed(false), onConfirm()) : setArmed(true))}
@@ -54,14 +69,16 @@ type Props = {
   onKeep: () => void;
   onDiscard: () => void;
   onArchive: () => void;
+  onShip: () => void;
+  onPage: () => void;
 };
 
-export default function MissionCard({ m, now, busy, onOpen, onReply, onCancel, onKeep, onDiscard, onArchive }: Props) {
+export default function MissionCard({ m, now, busy, onOpen, onReply, onCancel, onKeep, onDiscard, onArchive, onShip, onPage }: Props) {
   const [answer, setAnswer] = useState("");
   const active = isActive(m.status);
   const elapsed = m.activeSeconds + (m.turnStartedAt ? Math.max(0, (now - new Date(m.turnStartedAt).getTime()) / 1000) : 0);
   const brief = m.brief;
-  const closed = m.status === "kept" || m.status === "discarded";
+  const closed = m.status === "kept" || m.status === "discarded" || m.status === "shipped";
 
   return (
     <article className={`card${m.status === "needs_input" ? " ask" : ""}`}>
@@ -83,6 +100,7 @@ export default function MissionCard({ m, now, busy, onOpen, onReply, onCancel, o
             <i className={`lamp ${m.status === "queued" ? "" : "run"}`} />
             <span className="clip">{m.activity || statusLabel[m.status]}</span>
           </div>
+          {m.status === "shipping" && <Pipeline m={m} />}
           <div className="meta num">
             {m.steps > 0 && <span>step {m.steps}</span>}
             {m.status !== "queued" && <span>{duration(elapsed)}</span>}
@@ -128,6 +146,7 @@ export default function MissionCard({ m, now, busy, onOpen, onReply, onCancel, o
         </ul>
       )}
 
+      {!active && m.ship && <Pipeline m={m} />}
       {m.error && <p className="error">{m.error}</p>}
       {m.note && !m.error && <p className="small muted">{m.note}</p>}
 
@@ -144,6 +163,7 @@ export default function MissionCard({ m, now, busy, onOpen, onReply, onCancel, o
             <>
               <button className="btn primary" onClick={onOpen}>Review</button>
               <button className="btn go" onClick={onKeep} disabled={busy} title={`Commit to ${m.branch}. Nothing is pushed.`}>Keep</button>
+              <Confirm tone="ship" label="Ship" sure="Push and open a PR?" onConfirm={onShip} disabled={busy} title="Commit, then review, test, push and open a pull request through no-mistakes" />
               <Confirm label="Discard" sure="Delete the branch?" onConfirm={onDiscard} disabled={busy} />
             </>
           )}
@@ -154,6 +174,9 @@ export default function MissionCard({ m, now, busy, onOpen, onReply, onCancel, o
             </>
           )}
           {m.status === "done" && m.worktree && <Confirm label="Discard" sure="Delete the branch?" onConfirm={onDiscard} disabled={busy} />}
+          {(m.brief || m.files.length > 0) && (
+            <button className="btn quiet" onClick={onPage} disabled={busy} title="Open as a page you can read, point at and reply on">Read</button>
+          )}
           <span className="grow" />
           <span className="meta num">
             {m.activeSeconds > 0 && <span>{duration(m.activeSeconds)}</span>}

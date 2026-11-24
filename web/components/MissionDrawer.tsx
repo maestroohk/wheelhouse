@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, duration, isActive, modeInfo, money, statusLabel, type Mission, type MissionEvent } from "@/lib/api";
 import DiffView from "@/components/DiffView";
-import { CheckPills, Confirm, DiffStat, statusTone } from "@/components/MissionCard";
+import { CheckPills, Confirm, DiffStat, Pipeline, statusTone } from "@/components/MissionCard";
 
 type Props = {
   m: Mission;
@@ -14,20 +14,22 @@ type Props = {
   onKeep: (message?: string) => void;
   onDiscard: () => void;
   onRecheck?: () => void;
+  onShip: () => void;
+  onPage: () => void;
 };
 
 type Tab = "brief" | "changes" | "activity";
 
 const clock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-export default function MissionDrawer({ m, busy, onClose, onReply, onCancel, onKeep, onDiscard, onRecheck }: Props) {
+export default function MissionDrawer({ m, busy, onClose, onReply, onCancel, onKeep, onDiscard, onRecheck, onShip, onPage }: Props) {
   const [tab, setTab] = useState<Tab>(m.status === "review" ? "changes" : "brief");
   const [events, setEvents] = useState<MissionEvent[]>([]);
   const [reply, setReply] = useState("");
   const [message, setMessage] = useState("");
   const active = isActive(m.status);
   const brief = m.brief;
-  const canReply = !active && m.status !== "kept" && m.status !== "discarded";
+  const canReply = !active && m.status !== "kept" && m.status !== "discarded" && m.status !== "shipped";
   const canKeep = !active && !!m.worktree && m.files.length > 0;
 
   useEffect(() => {
@@ -58,6 +60,7 @@ export default function MissionDrawer({ m, busy, onClose, onReply, onCancel, onK
             <span className="tag" title={modeInfo[m.mode].hint}>{modeInfo[m.mode].label}</span>
             <span className={`tag ${statusTone(m.status)}`}>{statusLabel[m.status]}</span>
             <span className="grow" />
+            <button className="btn" onClick={onPage} disabled={busy} title="Open as a page you can read, point at and reply on (Lavish Editor)">Read as a page</button>
             <button className="btn quiet" onClick={onClose}>Close · Esc</button>
           </div>
           <h2>{m.title}</h2>
@@ -84,6 +87,16 @@ export default function MissionDrawer({ m, busy, onClose, onReply, onCancel, onK
                   <span>{m.activity || statusLabel[m.status]}</span>
                   <span className="grow" />
                   <button className="btn" onClick={onCancel} disabled={busy}>Cancel</button>
+                </div>
+              )}
+              {m.ship && (
+                <div className="section">
+                  <span className="cap">Shipping · no-mistakes</span>
+                  <Pipeline m={m} />
+                  {m.ship.prUrl && <a href={m.ship.prUrl} target="_blank" rel="noreferrer">{m.ship.prUrl}</a>}
+                  {m.ship.findings.length > 0 && (
+                    <ul className="bullets risk">{m.ship.findings.map((f) => <li key={f.id}>[{f.severity}] {f.file ? `${f.file}: ` : ""}{f.description}</li>)}</ul>
+                  )}
                 </div>
               )}
               {m.error && <p className="error">{m.error}</p>}
@@ -185,6 +198,7 @@ export default function MissionDrawer({ m, busy, onClose, onReply, onCancel, onK
             <div className="row">
               <input type="text" className="grow" style={{ width: "auto" }} placeholder={`Commit message (default: ${brief?.headline ?? m.title})`} value={message} onChange={(e) => setMessage(e.target.value)} />
               <button className="btn go" disabled={busy} onClick={() => onKeep(message || undefined)} title={`Commit to ${m.branch}. Nothing is pushed.`}>Keep and commit</button>
+              <Confirm tone="ship" label="Ship" sure="Push and open a PR?" onConfirm={onShip} disabled={busy} title="Commit, then review, test, push and open a pull request through no-mistakes" />
               <Confirm label="Discard" sure="Delete the branch?" onConfirm={onDiscard} disabled={busy} />
             </div>
           )}

@@ -180,6 +180,14 @@ public sealed class MissionService : IHostedService
             if (m.Status is MissionStatus.Kept or MissionStatus.Discarded) throw new WheelhouseException("This mission is closed. Start a new one.");
             if (m.Mode != MissionMode.Scout && m.Worktree != null && !Directory.Exists(m.Worktree))
                 throw new WheelhouseException("The mission's folder no longer exists. Start a new mission.");
+            if (m.Ship?.GateStep != null && m.Status == MissionStatus.NeedsInput)
+            {
+                m.Turns.Add(new Turn("you", text, DateTimeOffset.Now));
+                var answer = text;
+                Note(m, "you", Text.Clip(text, 200));
+                StartShip(m, (wt, progress, ct) => AnswerGate(m, wt, answer, progress, ct));
+                return m;
+            }
             m.Turns.Add(new Turn("you", text, DateTimeOffset.Now));
             m.PendingPrompt = text;
             m.Status = MissionStatus.Queued;
@@ -221,8 +229,7 @@ public sealed class MissionService : IHostedService
         var msg = string.IsNullOrWhiteSpace(message) ? DefaultCommitMessage(m) : message!.Trim();
         var add = await Proc.Git(m.Worktree, ct, "add", "-A");
         if (!add.Ok) throw new WheelhouseException($"Couldn't stage the changes: {add.Stderr.Trim()}");
-        var commit = await Proc.Git(m.Worktree, ct, "commit", "-m", msg);
-        if (!commit.Ok) throw new WheelhouseException($"Couldn't commit: {Text.Clip((commit.Stderr + commit.Stdout).Trim(), 400)}");
+        await CommitIfNeededAsync(m, msg, ct);
         var sha = await Proc.Git(m.Worktree, ct, "rev-parse", "--short", "HEAD");
         var removed = await RemoveWorktreeAsync(m, ct);
         lock (m)
@@ -308,7 +315,7 @@ public sealed class MissionService : IHostedService
                     m.Activity = "Starting";
                 }
                 Touch(m);
-                _ = Task.Run(() => RunTurnAsync(m, prompt, cts));
+                _ = Task.Run(() => m.Mode == MissionMode.Night && m.Worktree == null ? RunNightAsync(m, prompt, cts) : RunTurnAsync(m, prompt, cts));
             }
         }
     }
@@ -333,7 +340,7 @@ public sealed class MissionService : IHostedService
                 prompt = "Earlier in this task:\n" + earlier + state + "\n\nNow: " + prompt;
             }
             var res = await runner.RunAsync(
-                new AgentRequest(cwd, prompt, m.Mode, m.SessionId, null, TimeSpan.FromMinutes(settings.Get().MissionMinutes)),
+                new AgentRequest(cwd, prompt, m.Mode == MissionMode.Night ? MissionMode.Engineer : m.Mode, m.SessionId, null, TimeSpan.FromMinutes(settings.Get().MissionMinutes)),
                 ev =>
                 {
                     lock (m)
@@ -555,6 +562,242 @@ public sealed class MissionService : IHostedService
                 FlushAll();
             }
         });
+    }
+
+    // ---------- ship (no-mistakes) ----------
+
+    private async Task CommitIfNeededAsync(Mission m, string message, CancellationToken ct)
+    {
+        await Proc.Git(m.Worktree!, ct, "add", "-A");
+        var staged = await Proc.Git(m.Worktree!, ct, "diff", "--cached", "--quiet");
+        if (staged.ExitCode == 0) return; // nothing new to commit
+        var commit = await Proc.Git(m.Worktree!, ct, "commit", "-m", message);
+        if (!commit.Ok) throw new WheelhouseException($"Couldn't commit: {Text.Clip((commit.Stderr + commit.Stdout).Trim(), 400)}");
+    }
+
+    /// <summary>Commits the mission's work and sends it through no-mistakes: review, tests, push, pull request, CI.</summary>
+    public async Task<Mission> ShipAsync(string id, string? message, CancellationToken ct)
+    {
+        var m = Get(id);
+        if (MissionStatus.IsActive(m.Status)) throw new WheelhouseException("The mission is busy.");
+        if (m.Worktree == null || !Directory.Exists(m.Worktree) || m.Branch == null) throw new WheelhouseException("There is nothing to ship on this mission.");
+        if (!await NoMistakes.AvailableAsync(ct)) throw new WheelhouseException("Shipping uses no-mistakes, which isn't installed on this machine.");
+        var problem = await NoMistakes.EnsureInitAsync(m.RepoPath, ct);
+        if (problem != null) throw new WheelhouseException(problem);
+        await CommitIfNeededAsync(m, string.IsNullOrWhiteSpace(message) ? DefaultCommitMessage(m) : message!.Trim(), ct);
+        var sha = await Proc.Git(m.Worktree, ct, "rev-parse", "--short", "HEAD");
+        lock (m) m.CommitSha = sha.Stdout.Trim();
+
+        var asked = string.Join(" ", m.Turns.Where(t => t.Role == "you").Select(t => t.Text.Trim()));
+        var decided = m.Brief is { } b ? $" What was done: {b.Headline}. {string.Join(" ", b.Changes)}" : "";
+        var intent = Text.Clip(asked + decided, 3000);
+        Note(m, "status", $"Shipping {m.Branch} through no-mistakes");
+        StartShip(m, (wt, progress, token) => NoMistakes.RunAsync(wt, intent, progress, token));
+        return m;
+    }
+
+    private Task<ShipState> AnswerGate(Mission m, string worktree, string answer, Action<string> progress, CancellationToken ct)
+    {
+        var a = answer.Trim();
+        var ids = m.Ship?.Findings.Select(f => f.Id) ?? Enumerable.Empty<string>();
+        if (a.StartsWith("Approve", StringComparison.OrdinalIgnoreCase)) return NoMistakes.RespondAsync(worktree, "approve", null, null, progress, ct);
+        if (a.StartsWith("Skip", StringComparison.OrdinalIgnoreCase)) return NoMistakes.RespondAsync(worktree, "skip", null, null, progress, ct);
+        if (a.StartsWith("Fix", StringComparison.OrdinalIgnoreCase)) return NoMistakes.RespondAsync(worktree, "fix", ids, null, progress, ct);
+        // Anything else is guidance for how to fix what was found.
+        return NoMistakes.RespondAsync(worktree, "fix", ids, a, progress, ct);
+    }
+
+    private void StartShip(Mission m, Func<string, Action<string>, CancellationToken, Task<ShipState>> step)
+    {
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(stopping.Token);
+        if (!running.TryAdd(m.Id, cts)) { cts.Dispose(); throw new WheelhouseException("The mission is busy."); }
+        lock (m)
+        {
+            m.Status = MissionStatus.Shipping;
+            m.TurnStartedAt = DateTimeOffset.Now;
+            m.FinishedAt = null;
+            m.Error = null;
+            m.Activity = "Starting the pipeline";
+        }
+        FlushAll();
+        _ = Task.Run(async () =>
+        {
+            var sw = Stopwatch.StartNew();
+            var worktree = m.Worktree!;
+            try
+            {
+                var state = await step(worktree, text => { lock (m) m.Activity = text; Note(m, "ship", text); }, cts.Token);
+                lock (m) m.Ship = state;
+                if (state.GateStep != null)
+                {
+                    var label = NoMistakes.Label(state.GateStep);
+                    var top = string.Join(" ", state.Findings.Take(3).Select(f => $"[{f.Severity}] {f.Description}"));
+                    lock (m)
+                    {
+                        m.Brief ??= new Brief { Headline = m.Title };
+                        m.Brief.Questions = new List<Question>
+                        {
+                            new()
+                            {
+                                Text = Text.Clip($"{label} stopped with {state.Findings.Count} finding{(state.Findings.Count == 1 ? "" : "s")}. {top}", 600),
+                                Options = new List<string> { "Approve and continue", "Fix these", "Skip this step" },
+                            },
+                        };
+                        m.Status = MissionStatus.NeedsInput;
+                    }
+                    Note(m, "ship", $"Waiting for your decision at {label.ToLowerInvariant()}");
+                }
+                else if (state.Pushed)
+                {
+                    lock (m) { if (m.Brief != null) m.Brief.Questions = new(); }
+                    var released = await RemoveWorktreeAsync(m, CancellationToken.None);
+                    lock (m)
+                    {
+                        m.Status = MissionStatus.Shipped;
+                        m.Note = state.PrUrl != null ? $"Pushed {m.Branch}. Pull request: {state.PrUrl}" : $"Pushed {m.Branch}.";
+                        if (released) m.Worktree = null;
+                    }
+                    Note(m, "ship", m.Note!);
+                }
+                else
+                {
+                    var failed = state.Steps.FirstOrDefault(x => x.Status == "failed")?.Step;
+                    lock (m)
+                    {
+                        if (m.Brief != null) m.Brief.Questions = new();
+                        m.Status = MissionStatus.Review;
+                        m.Error = failed != null
+                            ? $"Shipping stopped at {NoMistakes.Label(failed).ToLowerInvariant()}: {state.Error ?? state.Outcome}. Nothing was pushed."
+                            : $"Shipping ended without pushing: {state.Error ?? state.Outcome ?? "no outcome reported"}.";
+                    }
+                    Note(m, "error", m.Error!);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                await NoMistakes.AbortAsync(worktree);
+                lock (m) { m.Status = MissionStatus.Review; m.Note = "Shipping was cancelled. Nothing more was pushed."; }
+            }
+            catch (Exception ex)
+            {
+                lock (m) { m.Status = MissionStatus.Review; m.Error = $"Shipping couldn't run: {ex.Message}"; }
+                log.LogError(ex, "Ship failed for {Id}", m.Id);
+            }
+            finally
+            {
+                running.TryRemove(m.Id, out _);
+                cts.Dispose();
+                lock (m) { m.Activity = ""; m.TurnStartedAt = null; m.FinishedAt = DateTimeOffset.Now; m.ActiveSeconds += sw.Elapsed.TotalSeconds; }
+                Note(m, "status", m.Status);
+                FlushAll();
+                repos.Invalidate();
+            }
+        });
+    }
+
+    // ---------- unattended (gnhf) ----------
+
+    private async Task RunNightAsync(Mission m, string objective, CancellationTokenSource cts)
+    {
+        var ct = cts.Token;
+        var sw = Stopwatch.StartNew();
+        var started = DateTime.UtcNow;
+        using var watching = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        try
+        {
+            if (!await Gnhf.AvailableAsync(ct)) throw new WheelhouseException("Unattended runs use gnhf, which isn't installed on this machine.");
+            var head = await Proc.Git(m.RepoPath, ct, "rev-parse", "HEAD");
+            if (!head.Ok) throw new WheelhouseException($"{m.RepoName} has no commits yet.");
+            var baseBranch = await Proc.Git(m.RepoPath, ct, "rev-parse", "--abbrev-ref", "HEAD");
+            if (baseBranch.Stdout.Trim().StartsWith("gnhf/")) throw new WheelhouseException("The repo is on a gnhf branch. Switch it back to your own branch first.");
+            var s = settings.Get();
+            lock (m) { m.BaseCommit = head.Stdout.Trim(); m.BaseBranch = baseBranch.Stdout.Trim(); m.Activity = "gnhf is starting"; }
+            Note(m, "status", $"Unattended run started with gnhf: up to {s.NightIterations} iterations, {s.NightHours} hours");
+
+            // gnhf draws a full-screen display, so progress is read from what it does to git instead.
+            var watcher = Task.Run(async () =>
+            {
+                var seen = -1;
+                while (!watching.Token.IsCancellationRequested)
+                {
+                    try { await Task.Delay(TimeSpan.FromSeconds(20), watching.Token); } catch { break; }
+                    var wt = Gnhf.NewestWorktree(m.RepoPath, started);
+                    if (wt == null) continue;
+                    var count = await Proc.Git(wt, CancellationToken.None, "rev-list", "--count", $"{m.BaseCommit}..HEAD");
+                    if (!int.TryParse(count.Stdout.Trim(), out var n) || n == seen) continue;
+                    seen = n;
+                    var last = await Proc.Git(wt, CancellationToken.None, "log", "-1", "--format=%s");
+                    lock (m) { m.Steps = n; m.Activity = n == 0 ? "Working on the first step" : $"{n} step{(n == 1 ? "" : "s")} committed. Last: {Text.Clip(last.Stdout.Trim(), 90)}"; }
+                    Note(m, "tool", m.Activity);
+                }
+            });
+
+            var result = await Gnhf.RunAsync(m.RepoPath, objective, s.NightIterations, s.NightHours, ct);
+            watching.Cancel();
+            await watcher;
+
+            if (result.Worktree == null)
+            {
+                lock (m) { m.Status = MissionStatus.Failed; m.Error = result.Error ?? "gnhf ended without leaving any work."; }
+                Note(m, "error", m.Error!);
+                return;
+            }
+            var branch = await Proc.Git(result.Worktree, ct, "rev-parse", "--abbrev-ref", "HEAD");
+            var commits = await Proc.Git(result.Worktree, ct, "log", "--reverse", "--format=%s", $"{m.BaseCommit}..HEAD");
+            var subjects = commits.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            lock (m)
+            {
+                m.Worktree = result.Worktree;
+                m.Workspace = "gnhf";
+                m.Branch = branch.Stdout.Trim();
+                m.Steps = subjects.Length;
+                m.Brief = new Brief
+                {
+                    Headline = $"Unattended run finished with {subjects.Length} committed step{(subjects.Length == 1 ? "" : "s")}",
+                    Changes = subjects.TakeLast(5).Select(x => Text.Clip(x, 110)).ToList(),
+                    Risks = new List<string> { "No one watched this run. Read the diff before keeping it." },
+                    Detail = (result.StopReason is { Length: > 0 } why ? $"Why it stopped: {why}\n\n" : "") + (result.Notes.Length > 0 ? result.Notes : result.Summary),
+                };
+                if (result.Error != null) m.Note = result.Error;
+                m.Turns.Add(new Turn("agent", m.Brief.Headline, DateTimeOffset.Now));
+            }
+            Note(m, "brief", m.Brief!.Headline);
+            await RefreshFilesAsync(m, ct);
+            await CheckAndOfferAsync(m, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            watching.Cancel();
+            var wt = Gnhf.NewestWorktree(m.RepoPath, started);
+            lock (m)
+            {
+                m.Status = MissionStatus.Cancelled;
+                if (wt != null) { m.Worktree = wt; m.Workspace = "gnhf"; }
+            }
+            if (wt != null)
+            {
+                var branch = await Proc.Git(wt, CancellationToken.None, "rev-parse", "--abbrev-ref", "HEAD");
+                lock (m) m.Branch = branch.Stdout.Trim();
+                try { await RefreshFilesAsync(m, CancellationToken.None); } catch { }
+            }
+        }
+        catch (Exception ex)
+        {
+            watching.Cancel();
+            lock (m) { m.Status = MissionStatus.Failed; m.Error = ex is WheelhouseException ? ex.Message : $"Something went wrong: {ex.Message}"; }
+            Note(m, "error", m.Error!);
+            if (ex is not WheelhouseException) log.LogError(ex, "Unattended mission {Id} failed", m.Id);
+        }
+        finally
+        {
+            running.TryRemove(m.Id, out _);
+            cts.Dispose();
+            lock (m) { m.Activity = ""; m.TurnStartedAt = null; m.FinishedAt = DateTimeOffset.Now; m.ActiveSeconds += sw.Elapsed.TotalSeconds; }
+            Note(m, "status", m.Status);
+            FlushAll();
+            repos.Invalidate();
+            Pump();
+        }
     }
 
     private async Task PrepareWorktreeAsync(Mission m, CancellationToken ct)

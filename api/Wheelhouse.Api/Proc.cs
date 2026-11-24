@@ -25,7 +25,8 @@ public static class Proc
         CancellationToken ct,
         Action<string>? onLine = null,
         string? stdin = null,
-        IReadOnlyDictionary<string, string>? env = null)
+        IReadOnlyDictionary<string, string>? env = null,
+        Action<string>? onErrorLine = null)
     {
         var psi = new ProcessStartInfo(file)
         {
@@ -71,6 +72,7 @@ public static class Proc
         {
             if (e.Data is null) return;
             lock (se) se.AppendLine(e.Data);
+            try { onErrorLine?.Invoke(e.Data); } catch { }
         };
 
         try { p.Start(); }

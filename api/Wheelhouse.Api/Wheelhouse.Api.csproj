@@ -5,4 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Wheelhouse.Api</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Markdig" Version="1.6.0" />
+  </ItemGroup>
 </Project>

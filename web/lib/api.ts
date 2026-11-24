@@ -35,6 +35,8 @@ export type Status =
   | "queued"
   | "running"
   | "checking"
+  | "shipping"
+  | "shipped"
   | "needs_input"
   | "review"
   | "done"
@@ -43,7 +45,11 @@ export type Status =
   | "kept"
   | "discarded";
 
-export type Mode = "scout" | "builder" | "engineer";
+export type Mode = "scout" | "builder" | "engineer" | "night";
+
+export type ShipStep = { step: string; status: string; findings: number; durationMs: number };
+export type ShipFinding = { id: string; severity: string; file: string; description: string; action: string };
+export type ShipState = { runId: string | null; outcome: string | null; error: string | null; prUrl: string | null; gateStep: string | null; steps: ShipStep[]; findings: ShipFinding[] };
 
 export type Mission = {
   id: string;
@@ -76,6 +82,7 @@ export type Mission = {
   commitSha: string | null;
   error: string | null;
   note: string | null;
+  ship: ShipState | null;
 };
 
 export type Settings = {
@@ -86,6 +93,8 @@ export type Settings = {
   missionMinutes: number;
   runChecks: boolean;
   useTreehouse: boolean;
+  nightIterations: number;
+  nightHours: number;
   pinned: string[];
 };
 
@@ -129,17 +138,22 @@ export const api = {
   keep: (id: string, message?: string) => post<Mission>(`/missions/${id}/keep`, { message }),
   discard: (id: string) => post<Mission>(`/missions/${id}/discard`),
   recheck: (id: string) => post<Mission>(`/missions/${id}/checks`),
+  ship: (id: string, message?: string) => post<Mission>(`/missions/${id}/ship`, { message }),
+  page: (id: string) => post<{ url: string }>(`/missions/${id}/page`),
+  tools: () => call<{ treehouse: boolean; noMistakes: boolean; gnhf: boolean; lavish: boolean }>("/tools"),
   archive: (id: string) => call<{ ok: boolean }>(`/missions/${id}`, { method: "DELETE" }),
   saveSettings: (s: Settings) => call<Settings>("/settings", { method: "PUT", body: JSON.stringify(s) }),
 };
 
-export const isActive = (s: Status) => s === "queued" || s === "running" || s === "checking";
+export const isActive = (s: Status) => s === "queued" || s === "running" || s === "checking" || s === "shipping";
 export const needsYou = (s: Status) => s === "needs_input" || s === "review" || s === "failed";
 
 export const statusLabel: Record<Status, string> = {
   queued: "Queued",
   running: "Working",
   checking: "Running checks",
+  shipping: "Shipping",
+  shipped: "Shipped",
   needs_input: "Needs an answer",
   review: "Ready to review",
   done: "Done",
@@ -153,6 +167,7 @@ export const modeInfo: Record<Mode, { label: string; hint: string }> = {
   scout: { label: "Scout", hint: "Reads and reports. Changes nothing." },
   builder: { label: "Builder", hint: "Edits files on an isolated branch. Runs no commands." },
   engineer: { label: "Engineer", hint: "Edits, builds and tests on an isolated branch." },
+  night: { label: "Unattended", hint: "Keeps working on its own for hours, one commit per step. You review the branch after." },
 };
 
 export function ago(iso: string | null, now = Date.now()): string {
@@ -171,5 +186,9 @@ export function duration(seconds: number): string {
   const m = Math.floor(s / 60);
   return m < 60 ? `${m}m ${String(s % 60).padStart(2, "0")}s` : `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
 }
+
+export const stepLabel: Record<string, string> = {
+  intent: "Goal", rebase: "Rebase", review: "Review", test: "Tests", document: "Docs", lint: "Lint", push: "Push", pr: "PR", ci: "CI",
+};
 
 export const money = (n: number) => (n > 0 ? `$${n.toFixed(n < 1 ? 3 : 2)}` : "$0");

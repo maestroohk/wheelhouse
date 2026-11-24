@@ -78,9 +78,9 @@ export default function Fleet({ repos, missions, targets, now, onToggle, onPin, 
   };
 
   return (
-    <aside className="col fleet" aria-label="Fleet">
+    <section className="fleet" aria-label="Fleet list">
       <div className="col-head" style={{ padding: "0 8px" }}>
-        <span className="cap">Fleet</span>
+        <span className="cap">All repos</span>
         <span className="count">{repos.length} repos</span>
         <span className="grow" />
         <button className="icon-btn" onClick={onRefresh} disabled={refreshing} title="Look for new repos and refresh status">
@@ -114,6 +114,6 @@ export default function Fleet({ repos, missions, targets, now, onToggle, onPin, 
           <span>Set your projects folder in Settings.</span>
         </div>
       )}
-    </aside>
+    </section>
   );
 }

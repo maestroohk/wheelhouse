@@ -13,6 +13,7 @@ else
     builder.Services.AddSingleton<IAgentRunner, ClaudeCodeRunner>();
 builder.Services.AddSingleton<MissionService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MissionService>());
+builder.Services.AddSingleton<Lavish>();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
     .SetIsOriginAllowed(origin => Uri.TryCreate(origin, UriKind.Absolute, out var u) && u.IsLoopback)
     .AllowAnyHeader()
@@ -36,7 +37,7 @@ var api = app.MapGroup("/api");
 
 api.MapGet("/health", () => new { ok = true, name = "wheelhouse", version = "0.1.0" });
 
-api.MapGet("/tools", async (CancellationToken ct) => new { treehouse = await Treehouse.AvailableAsync(ct) });
+api.MapGet("/tools", async (CancellationToken ct) => new { treehouse = await Treehouse.AvailableAsync(ct), noMistakes = await NoMistakes.AvailableAsync(ct), gnhf = await Gnhf.AvailableAsync(ct), lavish = await Lavish.AvailableAsync(ct) });
 
 api.MapGet("/state", async (RepoRegistry repos, MissionService missions, SettingsStore settings, CancellationToken ct) => new
 {
@@ -88,6 +89,8 @@ api.MapGet("/missions/{id}/diff", async (string id, MissionService missions, Can
 api.MapPost("/missions/{id}/reply", (string id, ReplyRequest req, MissionService missions) => missions.Reply(id, req.Text));
 api.MapPost("/missions/{id}/cancel", (string id, MissionService missions) => missions.Cancel(id));
 api.MapPost("/missions/{id}/keep", async (string id, KeepRequest req, MissionService missions, CancellationToken ct) => await missions.KeepAsync(id, req.Message, ct));
+api.MapPost("/missions/{id}/ship", async (string id, KeepRequest req, MissionService missions, CancellationToken ct) => await missions.ShipAsync(id, req.Message, ct));
+api.MapPost("/missions/{id}/page", async (string id, Lavish lavish, CancellationToken ct) => new { url = await lavish.OpenAsync(id, ct) });
 api.MapPost("/missions/{id}/discard", async (string id, MissionService missions, CancellationToken ct) => await missions.DiscardAsync(id, ct));
 api.MapDelete("/missions/{id}", (string id, MissionService missions) => { missions.Archive(id); return new { ok = true }; });
 
@@ -104,6 +107,8 @@ api.MapPut("/settings", (Settings incoming, SettingsStore settings, RepoRegistry
         s.MissionMinutes = incoming.MissionMinutes;
         s.RunChecks = incoming.RunChecks;
         s.UseTreehouse = incoming.UseTreehouse;
+        s.NightIterations = Math.Clamp(incoming.NightIterations, 1, 200);
+        s.NightHours = Math.Clamp(incoming.NightHours, 1, 24);
     });
     repos.Invalidate();
     return saved;

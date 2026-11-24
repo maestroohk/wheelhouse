@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { API, api, isActive, money, needsYou, type Mission, type Mode, type Repo, type Settings } from "@/lib/api";
+import Chart from "@/components/Chart";
 import Fleet from "@/components/Fleet";
 import Helm from "@/components/Helm";
 import MissionCard from "@/components/MissionCard";
@@ -126,6 +127,8 @@ export default function Bridge() {
     onKeep: (message?: string) => act(m.id, () => api.keep(m.id, typeof message === "string" ? message : undefined)),
     onDiscard: () => act(m.id, () => api.discard(m.id)),
     onRecheck: () => act(m.id, () => api.recheck(m.id)),
+    onShip: () => act(m.id, () => api.ship(m.id)),
+    onPage: () => act(m.id, async () => { const { url } = await api.page(m.id); window.open(url, "_blank", "noopener"); }),
     onArchive: () => act(m.id, async () => { await api.archive(m.id); setMissions((l) => l.filter((x) => x.id !== m.id)); }),
   });
 
@@ -163,6 +166,8 @@ export default function Bridge() {
       </header>
 
       <div className="deck">
+        <aside className="col chartroom" aria-label="Fleet">
+          <Chart repos={repos} missions={missions} targets={targets} now={now} onToggle={(id) => setTargets((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id]))} onLogbook={setLogbookId} />
         <Fleet
           repos={repos}
           missions={missions}
@@ -174,6 +179,7 @@ export default function Bridge() {
           onRefresh={refresh}
           refreshing={refreshing}
         />
+        </aside>
 
         <main className="col" aria-label="Missions">
           <div className="col-head">

@@ -17,6 +17,15 @@
   --go-wash: #d9efe5;
   --stop: #b3262e;
   --stop-wash: #f9dfe0;
+  --grid: rgba(16, 35, 58, 0.035);
+  /* The scope is an instrument: it keeps its own dark face in both themes. */
+  --scope: #0c1c30;
+  --scope-line: rgba(140, 200, 225, 0.2);
+  --scope-ink: #9fb9cf;
+  --scope-dim: #5f7a92;
+  --sonar: #58d6c7;
+  --scope-amber: #f0b657;
+  --scope-helm: #8fb2ff;
   --display: var(--font-display), "Segoe UI", system-ui, sans-serif;
   --body: var(--font-body), "Segoe UI", system-ui, sans-serif;
   --mono: var(--font-mono), "Cascadia Mono", Consolas, monospace;
@@ -41,6 +50,8 @@
     --go-wash: #11301f;
     --stop: #ff8086;
     --stop-wash: #3a1a1d;
+    --grid: rgba(160, 200, 230, 0.03);
+    --scope: #060f1a;
     color-scheme: dark;
   }
 }
@@ -74,15 +85,20 @@ ul { margin: 0; padding: 0; list-style: none; }
 .gauge b { font-size: 14px; color: var(--ink); font-weight: 500; }
 .gauge.hot b { color: var(--amber); }
 
-.deck { display: grid; grid-template-columns: 268px minmax(0, 1fr) 372px; min-height: 0; }
+.deck { display: grid; grid-template-columns: minmax(340px, 26vw) minmax(0, 1fr) 372px; min-height: 0; }
 .col { min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .col + .col { border-left: 1px solid var(--rule); }
 .col-head { display: flex; align-items: center; gap: 8px; }
 .col-head .count { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
-.fleet { background: var(--sheet); padding: 14px 10px; }
+.chartroom { background: var(--sheet); padding: 12px 10px 14px; gap: 10px; }
+.fleet { display: flex; flex-direction: column; gap: 10px; }
+main.col {
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
 .inbox { background: var(--well); }
 @media (max-width: 1100px) {
-  .deck { grid-template-columns: 230px minmax(0, 1fr); }
+  .deck { grid-template-columns: 300px minmax(0, 1fr); }
   .inbox { grid-column: 1 / -1; border-left: 0 !important; border-top: 1px solid var(--rule); overflow: visible; }
   .deck { overflow-y: auto; }
 }
@@ -216,3 +232,57 @@ button.card-title:hover { color: var(--helm); }
 .field { display: grid; gap: 4px; }
 .field label { font-weight: 500; }
 .field .hint { font-size: 12.5px; color: var(--ink-3); }
+
+/* ---------- the scope (fleet chart) ---------- */
+.scope { background: var(--scope); border-radius: 8px; padding: 6px 6px 10px; display: grid; gap: 2px; }
+.scope svg { width: 100%; height: auto; display: block; max-height: 46vh; }
+.scope-face { fill: rgba(88, 214, 199, 0.035); stroke: var(--scope-line); stroke-width: 1; }
+.ring { fill: none; stroke: var(--scope-line); stroke-width: 1; }
+.ring.cross { stroke-dasharray: 2 6; }
+.ring-label { font: 500 8px var(--mono); letter-spacing: 0.12em; text-transform: uppercase; fill: var(--scope-dim); }
+.now-dot { fill: var(--sonar); }
+.sweep { transform-origin: 200px 200px; animation: sweep 9s linear infinite; }
+.sweep-line { stroke: var(--sonar); stroke-width: 1; opacity: 0.55; }
+@keyframes sweep { to { transform: rotate(360deg); } }
+.blip { cursor: pointer; outline: none; }
+.blip .hit { fill: transparent; }
+.blip .mark { fill: var(--scope-dim); stroke: var(--scope); stroke-width: 1.5; transition: fill 0.15s; }
+.blip.dirty .mark { fill: var(--scope); stroke: var(--scope-amber); stroke-width: 1.8; }
+.blip.run .mark { fill: var(--sonar); }
+.blip.wait .mark { fill: var(--scope-amber); }
+.blip:hover .mark, .blip:focus-visible .mark { fill: #ffffff; }
+.blip .ping { fill: none; stroke: var(--sonar); stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: ping 1.8s ease-out infinite; }
+@keyframes ping { from { transform: scale(0.8); opacity: 0.9; } to { transform: scale(2.6); opacity: 0; } }
+.blip .reticle { fill: none; stroke: var(--scope-helm); stroke-width: 1.6; }
+.blip-label { font: 500 8.5px var(--mono); fill: var(--scope-ink); paint-order: stroke; stroke: var(--scope); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
+.blip.on .blip-label { fill: #ffffff; }
+.blip.wait .blip-label { fill: var(--scope-amber); }
+.blip.run .blip-label { fill: var(--sonar); }
+.readout { font: 11.5px/1.45 var(--mono); color: var(--scope-ink); padding: 0 8px; min-height: 2.9em; }
+.readout b { color: #ffffff; font-weight: 500; }
+.readout .warn { color: var(--scope-amber); }
+@media (prefers-reduced-motion: reduce) { .sweep { animation: none; } .blip .ping { animation: none; opacity: 0.6; } }
+
+/* ---------- top band readouts ---------- */
+.band { min-height: 56px; }
+.mark { font-size: 1.22rem; }
+.gauge { border: 1px solid var(--rule); background: var(--well); border-radius: 5px; padding: 4px 11px; }
+.gauge b { font-size: 15px; }
+.gauge.hot { border-color: var(--amber); background: var(--amber-wash); color: var(--amber); }
+
+/* ---------- shipping pipeline ---------- */
+.pipe { display: flex; gap: 3px; flex-wrap: wrap; }
+.pipe li { font: 500 10px var(--mono); letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 7px; border-radius: 3px; background: var(--well); color: var(--ink-3); }
+.pipe li.completed { background: var(--go-wash); color: var(--go); }
+.pipe li.running { background: var(--helm-wash); color: var(--helm); animation: pulse 1.6s ease-in-out infinite; }
+.pipe li.failed { background: var(--stop-wash); color: var(--stop); }
+.pipe li.skipped { text-decoration: line-through; }
+.pipe li.awaiting_approval, .pipe li.awaiting, .pipe li.gated { background: var(--amber-wash); color: var(--amber); }
+.btn.ship { border-color: var(--helm); color: var(--helm); }
+.btn.ship.armed { background: var(--helm); color: var(--sheet); }
+
+/* ---------- helm prompt ---------- */
+.helm { border-top: 2px solid var(--ink); }
+.helm-line::before { content: "❯"; font: 600 20px var(--mono); color: var(--helm); align-self: center; }
+.card { box-shadow: 0 1px 0 var(--rule); }
+.card-title { font-size: 15px; }

@@ -127,6 +127,14 @@ export function SettingsPanel({ settings, onClose, onSaved }: { settings: Settin
           <input id="set-min" type="number" min={2} max={240} value={draft.missionMinutes} onChange={(e) => set("missionMinutes", Number(e.target.value))} />
         </div>
         <div className="field">
+          <label htmlFor="set-night">Unattended runs: most steps, and most hours</label>
+          <div className="row">
+            <input id="set-night" type="number" min={1} max={200} style={{ width: 110 }} value={draft.nightIterations} onChange={(e) => set("nightIterations", Number(e.target.value))} />
+            <input id="set-night-hours" type="number" min={1} max={24} style={{ width: 110 }} value={draft.nightHours} onChange={(e) => set("nightHours", Number(e.target.value))} aria-label="Most hours" />
+          </div>
+          <span className="hint">An unattended run stops at whichever comes first. Run by gnhf.</span>
+        </div>
+        <div className="field">
           <label htmlFor="set-model">Model</label>
           <input id="set-model" type="text" placeholder="Claude Code's default" value={draft.model ?? ""} onChange={(e) => set("model", e.target.value || null)} />
           <span className="hint">A Claude Code model name or alias, such as sonnet or opus. Leave empty for the default.</span>
