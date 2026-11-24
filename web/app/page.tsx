@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { API, api, isActive, money, needsYou, type Mission, type Mode, type Plan, type Repo, type Settings } from "@/lib/api";
+import { API, api, isActive, money, needsYou, type Mission, type Mode, type Plan, type Playbook, type Repo, type Settings } from "@/lib/api";
 import Chart from "@/components/Chart";
 import Fleet from "@/components/Fleet";
 import Helm from "@/components/Helm";
@@ -28,6 +28,7 @@ export default function Bridge() {
   const [repos, setRepos] = useState<Repo[]>([]);
   const [missions, setMissions] = useState<Mission[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [playbooks, setPlaybooks] = useState<Playbook[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [offline, setOffline] = useState<string | null>(null);
@@ -61,6 +62,7 @@ export default function Bridge() {
       setRepos(s.repos);
       setMissions(s.missions);
       setPlans(s.plans ?? []);
+      setPlaybooks(s.playbooks ?? []);
       setSettings(s.settings);
       setOffline(null);
     } catch (e) {
@@ -273,7 +275,13 @@ export default function Bridge() {
         </aside>
       </div>
 
-      <Helm repos={repos} targets={targets.filter((t) => repos.length === 0 || repos.some((r) => r.id === t))} mode={mode} onTargets={setTargets} onMode={setMode} onSend={send} onPlan={startPlan} />
+      <Helm repos={repos} targets={targets.filter((t) => repos.length === 0 || repos.some((r) => r.id === t))} mode={mode} onTargets={setTargets} onMode={setMode} onSend={send} onPlan={startPlan}
+        playbooks={playbooks}
+        onSavePlaybook={async (name, text, m) => {
+          try { setPlaybooks(await api.savePlaybook(name, text, m)); return true; } catch (e) { setToast((e as Error).message); return false; }
+        }}
+        onRemovePlaybook={(id) => api.removePlaybook(id).then(setPlaybooks, (e: Error) => setToast(e.message))}
+      />
 
       {open && <MissionDrawer key={open.id} m={open} busy={busy === open.id} onClose={() => setOpenId(null)} {...handlers(open)} />}
       {logbookId && (

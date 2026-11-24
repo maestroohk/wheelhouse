@@ -15,6 +15,7 @@ builder.Services.AddSingleton<MissionService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MissionService>());
 builder.Services.AddSingleton<Lavish>();
 builder.Services.AddSingleton<Planner>();
+builder.Services.AddSingleton<Playbooks>();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
     .SetIsOriginAllowed(origin => Uri.TryCreate(origin, UriKind.Absolute, out var u) && u.IsLoopback)
     .AllowAnyHeader()
@@ -40,13 +41,14 @@ api.MapGet("/health", () => new { ok = true, name = "wheelhouse", version = "0.1
 
 api.MapGet("/tools", async (CancellationToken ct) => new { treehouse = await Treehouse.AvailableAsync(ct), noMistakes = await NoMistakes.AvailableAsync(ct), gnhf = await Gnhf.AvailableAsync(ct), lavish = await Lavish.AvailableAsync(ct) });
 
-api.MapGet("/state", async (RepoRegistry repos, MissionService missions, SettingsStore settings, Planner planner, CancellationToken ct) => new
+api.MapGet("/state", async (RepoRegistry repos, MissionService missions, SettingsStore settings, Planner planner, Playbooks playbooks, CancellationToken ct) => new
 {
     repos = await repos.GetAsync(false, ct),
     missions = missions.All(),
     settings = settings.Get(),
     costToday = missions.CostToday(),
     plans = planner.All(),
+    playbooks = playbooks.All(),
 });
 
 api.MapPost("/repos/refresh", async (RepoRegistry repos, CancellationToken ct) => await repos.GetAsync(true, ct));
@@ -100,6 +102,10 @@ api.MapPost("/plans", async (CreatePlanRequest req, Planner planner, Cancellatio
 api.MapPost("/plans/{id}/revise", async (string id, RevisePlanRequest req, Planner planner, CancellationToken ct) => await planner.ReviseAsync(id, req.Text, ct));
 api.MapPost("/plans/{id}/launch", async (string id, LaunchPlanRequest req, Planner planner, CancellationToken ct) => await planner.LaunchAsync(id, req, ct));
 api.MapDelete("/plans/{id}", (string id, Planner planner) => { planner.Remove(id); return new { ok = true }; });
+
+api.MapGet("/playbooks", (Playbooks playbooks) => playbooks.All());
+api.MapPost("/playbooks", (SavePlaybookRequest req, Playbooks playbooks) => { playbooks.Save(req); return playbooks.All(); });
+api.MapDelete("/playbooks/{id}", (string id, Playbooks playbooks) => { playbooks.Remove(id); return playbooks.All(); });
 
 api.MapGet("/settings", (SettingsStore settings) => settings.Get());
 api.MapPut("/settings", (Settings incoming, SettingsStore settings, RepoRegistry repos) =>
