@@ -95,6 +95,7 @@ export type Settings = {
   useTreehouse: boolean;
   nightIterations: number;
   nightHours: number;
+  nightAgent: string;
   pinned: string[];
 };
 

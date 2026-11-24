@@ -124,6 +124,8 @@ public sealed class Settings
     public bool UseTreehouse { get; set; } = true;
     public int NightIterations { get; set; } = 8;
     public int NightHours { get; set; } = 8;
+    /// <summary>The agent gnhf drives: claude, codex, copilot and so on, or acp:&lt;target or command&gt;.</summary>
+    public string NightAgent { get; set; } = "claude";
     public List<string> Pinned { get; set; } = new();
 }
 

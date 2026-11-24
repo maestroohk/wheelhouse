@@ -717,22 +717,28 @@ public sealed class MissionService : IHostedService
             // gnhf draws a full-screen display, so progress is read from what it does to git instead.
             var watcher = Task.Run(async () =>
             {
-                var seen = -1;
+                var seen = "";
                 while (!watching.Token.IsCancellationRequested)
                 {
-                    try { await Task.Delay(TimeSpan.FromSeconds(20), watching.Token); } catch { break; }
+                    try { await Task.Delay(TimeSpan.FromSeconds(6), watching.Token); } catch { break; }
                     var wt = Gnhf.NewestWorktree(m.RepoPath, started);
                     if (wt == null) continue;
+                    var iteration = Gnhf.Iteration(wt);
                     var count = await Proc.Git(wt, CancellationToken.None, "rev-list", "--count", $"{m.BaseCommit}..HEAD");
-                    if (!int.TryParse(count.Stdout.Trim(), out var n) || n == seen) continue;
-                    seen = n;
-                    var last = await Proc.Git(wt, CancellationToken.None, "log", "-1", "--format=%s");
-                    lock (m) { m.Steps = n; m.Activity = n == 0 ? "Working on the first step" : $"{n} step{(n == 1 ? "" : "s")} committed. Last: {Text.Clip(last.Stdout.Trim(), 90)}"; }
+                    int.TryParse(count.Stdout.Trim(), out var n);
+                    if ($"{iteration}/{n}" == seen) continue;
+                    seen = $"{iteration}/{n}";
+                    var last = n > 0 ? (await Proc.Git(wt, CancellationToken.None, "log", "-1", "--format=%s")).Stdout.Trim() : "";
+                    lock (m)
+                    {
+                        m.Steps = n;
+                        m.Activity = $"Step {Math.Max(iteration, 1)} of up to {s.NightIterations}" + (n > 0 ? $" · {n} committed · last: {Text.Clip(last, 80)}" : "");
+                    }
                     Note(m, "tool", m.Activity);
                 }
             });
 
-            var result = await Gnhf.RunAsync(m.RepoPath, objective, s.NightIterations, s.NightHours, ct);
+            var result = await Gnhf.RunAsync(m.RepoPath, objective, s.NightAgent, s.NightIterations, s.NightHours, ct);
             watching.Cancel();
             await watcher;
 
@@ -755,8 +761,9 @@ public sealed class MissionService : IHostedService
                 {
                     Headline = $"Unattended run finished with {subjects.Length} committed step{(subjects.Length == 1 ? "" : "s")}",
                     Changes = subjects.TakeLast(5).Select(x => Text.Clip(x, 110)).ToList(),
+                    Verified = result.StopReason is { Length: > 0 } stats ? new List<string> { $"gnhf reports: {stats}" } : new List<string>(),
                     Risks = new List<string> { "No one watched this run. Read the diff before keeping it." },
-                    Detail = (result.StopReason is { Length: > 0 } why ? $"Why it stopped: {why}\n\n" : "") + (result.Notes.Length > 0 ? result.Notes : result.Summary),
+                    Detail = result.Notes.Length > 0 ? result.Notes : result.Summary,
                 };
                 if (result.Error != null) m.Note = result.Error;
                 m.Turns.Add(new Turn("agent", m.Brief.Headline, DateTimeOffset.Now));
@@ -884,6 +891,18 @@ public sealed class MissionService : IHostedService
             await Task.Delay(800, ct);
         }
         await Proc.Git(m.RepoPath, ct, "worktree", "prune");
+        if (Directory.Exists(m.Worktree))
+        {
+            // git can drop the worktree and still leave build output behind. Once git no longer knows the folder,
+            // what remains is only this mission's leftovers, so it is removed here.
+            var list = await Proc.Git(m.RepoPath, ct, "worktree", "list", "--porcelain");
+            var known = list.Stdout.Replace('\\', '/').Contains(Path.GetFullPath(m.Worktree).Replace('\\', '/'), StringComparison.OrdinalIgnoreCase);
+            for (var attempt = 0; !known && attempt < 3 && Directory.Exists(m.Worktree); attempt++)
+            {
+                try { Directory.Delete(m.Worktree, true); }
+                catch { await Task.Delay(700, ct); }
+            }
+        }
         return !Directory.Exists(m.Worktree);
     }
 

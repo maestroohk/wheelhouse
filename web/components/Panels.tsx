@@ -135,6 +135,11 @@ export function SettingsPanel({ settings, onClose, onSaved }: { settings: Settin
           <span className="hint">An unattended run stops at whichever comes first. Run by gnhf.</span>
         </div>
         <div className="field">
+          <label htmlFor="set-night-agent">Unattended runs: agent</label>
+          <input id="set-night-agent" type="text" value={draft.nightAgent} onChange={(e) => set("nightAgent", e.target.value)} />
+          <span className="hint">Any agent gnhf supports: claude, codex, copilot, opencode, or acp: followed by a target.</span>
+        </div>
+        <div className="field">
           <label htmlFor="set-model">Model</label>
           <input id="set-model" type="text" placeholder="Claude Code's default" value={draft.model ?? ""} onChange={(e) => set("model", e.target.value || null)} />
           <span className="hint">A Claude Code model name or alias, such as sonnet or opus. Leave empty for the default.</span>

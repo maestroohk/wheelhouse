@@ -49,7 +49,7 @@ export default function Helm({ repos, targets, mode, onTargets, onMode, onSend }
     const el = box.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.min(180, el.scrollHeight + 2)}px`;
+    el.style.height = text ? `${Math.min(180, el.scrollHeight + 2)}px` : "";
   }, [text]);
 
   const choose = (r: Repo) => {

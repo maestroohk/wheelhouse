@@ -109,6 +109,7 @@ api.MapPut("/settings", (Settings incoming, SettingsStore settings, RepoRegistry
         s.UseTreehouse = incoming.UseTreehouse;
         s.NightIterations = Math.Clamp(incoming.NightIterations, 1, 200);
         s.NightHours = Math.Clamp(incoming.NightHours, 1, 24);
+        s.NightAgent = string.IsNullOrWhiteSpace(incoming.NightAgent) ? "claude" : incoming.NightAgent.Trim();
     });
     repos.Invalidate();
     return saved;
