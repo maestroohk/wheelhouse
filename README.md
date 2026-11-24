@@ -35,6 +35,18 @@ Needs: .NET 10 SDK, Node 20+, git, and the Claude Code CLI signed in (`claude`, 
 - **Read as a page.** *Read* opens a mission as a page in [Lavish Editor](https://github.com/kunchenguid/lavish-axi): brief, checks, the agent's notes and the diff. Click any line or select text to leave a note; *Send to Agent* turns your notes into one follow-up for the agent. The page's Keep and Ship buttons act the same as the ones in Wheelhouse.
 - **Taking in outside work.** Work done by another agent in a git worktree can be handed in (`POST /api/missions/adopt`) and gets the same checks and review.
 
+## For agents: `wh`
+
+`wh` lets any coding agent or script drive Wheelhouse: see what is going on, start missions, wait for them, read briefs and diffs, reply, and hand in work it did itself. It follows the [AXI](https://github.com/kunchenguid/axi) rules for agent tools: compact output, live content when run with no arguments, errors that say what to run next, no prompts.
+
+```powershell
+.\wh
+.\wh send repo-pulse --say "Where was I?"
+.\wh wait <id>
+```
+
+Keeping, shipping, discarding and launching a plan stay your decisions: `wh ship` refuses without `--yes-push`, and `AGENTS.md` tells agents to leave those to you.
+
 ## Built on
 
 Wheelhouse uses existing tools where they exist instead of rewriting them.
@@ -45,6 +57,7 @@ Wheelhouse uses existing tools where they exist instead of rewriting them.
 | Review, test, push, pull request, CI gate | [no-mistakes](https://github.com/kunchenguid/no-mistakes) (`no-mistakes axi run` / `respond`) | In use. Its review and test steps need a signed-in agent |
 | Unattended runs | [gnhf](https://github.com/kunchenguid/gnhf) (`gnhf --worktree`) | In use |
 | Reading long output and replying on it | [lavish-axi](https://github.com/kunchenguid/lavish-axi) | In use |
+| Design of the `wh` command line | [axi](https://github.com/kunchenguid/axi) | In use (its rules; `wh` is written here) |
 | Agents other than Claude Code | [acpx](https://github.com/kunchenguid/acpx) / Agent Client Protocol | Later |
 
 ## Where things live
@@ -79,7 +92,7 @@ Adding another agent (Codex, Gemini CLI, a local model) means implementing `IAge
 
 ## Not built yet
 
-A `wh` command line for agents, playbooks kept in a repo for a team, pull request and CI state on the fleet (gh-axi), a quota gauge (quota-axi), a backlog per repo (tasks-axi). See `docs/features.html`.
+Playbooks kept in a repo for a team, pull request and CI state on the fleet (gh-axi), a quota gauge (quota-axi), a backlog per repo (tasks-axi). See `docs/features.html`.
 
 ## Signing in
 
