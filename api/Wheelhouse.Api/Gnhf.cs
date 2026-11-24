@@ -14,8 +14,7 @@ public static partial class Gnhf
 {
     static bool? available;
 
-    static (string File, List<string> Prefix) Command() =>
-        OperatingSystem.IsWindows() ? ("cmd.exe", new List<string> { "/d", "/c", "gnhf" }) : ("gnhf", new List<string>());
+    static (string File, List<string> Prefix) Command() => NodeTool.Command("gnhf");
 
     public static async Task<bool> AvailableAsync(CancellationToken ct)
     {

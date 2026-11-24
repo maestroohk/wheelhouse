@@ -48,6 +48,9 @@ const COMMANDS = {
   discard: { flags: {}, usage: "wh discard <mission>", about: "Delete the mission's branch and folder. Only on the developer's say-so." },
   cancel: { flags: {}, usage: "wh cancel <mission>", about: "Stop a working mission. Its work so far is kept for review." },
   ship: { flags: { "yes-push": "bool" }, usage: "wh ship <mission> --yes-push", about: "Commit and send through review, tests, push and pull request. This pushes to the remote, so it needs --yes-push and the developer's say-so." },
+  later: { flags: { say: "str", kind: "str" }, usage: 'wh later <repo>... --say "<what to do>" [--kind change|investigate]', about: "Note something to do in a repo later, without starting anything. It goes on the developer's Later list (kept by tasks-axi)." },
+  backlog: { flags: { repo: "str" }, usage: "wh backlog [--repo <id>]", about: "What is noted for later, per repo." },
+  start: { flags: { mode: "str" }, usage: "wh start <task> [--mode scout|builder|engineer|night]", about: "Start a noted task as a mission in its repo." },
   plan: { flags: { goal: "str" }, usage: 'wh plan --goal "<goal>" [<repo>...]', about: "Have the planner split one goal into a task per repo. Nothing starts until it is launched." },
   plans: { flags: {}, usage: "wh plans", about: "Cross-repo plans and their tasks." },
   launch: { flags: {}, usage: "wh launch <plan>", about: "Start the missions of a plan that is ready, as drafted." },
@@ -138,6 +141,8 @@ async function home() {
   table("waiting", waiting.map(row), ["id", "repo", "state", "summary"], "nothing is waiting on the developer");
   table("working", working.map(row), ["id", "repo", "state", "summary"], "no agents are working");
   const ready = (s.plans ?? []).filter((p) => p.status === "ready");
+  const noted = (s.backlog ?? []).filter((t) => t.state === "queued");
+  if (noted.length) out.push(`later: ${noted.length} tasks noted for later (run \`wh backlog\`)`);
   if (ready.length) table("plans_ready", ready.map((p) => ({ id: p.id, goal: clip(p.goal, 70), tasks: p.steps.length })), ["id", "goal", "tasks"]);
   help([
     "Run `wh repos` for repo ids",
@@ -156,7 +161,7 @@ async function run() {
     flush();
   }
   const { command, spec, flags, args } = parse(argv);
-  const s = ["repos", "missions", "plans"].includes(command) ? await api("/state") : null;
+  const s = ["repos", "missions", "plans", "backlog"].includes(command) ? await api("/state") : null;
 
   if (command === "repos") {
     const month = Date.now() - 30 * 86400000;
@@ -230,6 +235,23 @@ async function run() {
     const m = await api(`/missions/${id}/${command}`, "POST", command === "keep" || command === "ship" ? { message: flags.message } : {});
     kv("mission", m.id); kv("state", m.status); kv("note", m.note); kv("error", m.error);
     if (ACTIVE.has(m.status)) help([`Run \`wh wait ${m.id}\` to block until it stops`]);
+  } else if (command === "later") {
+    need(args.length, "at least one repo id", spec);
+    const kind = flags.kind ?? "change";
+    if (!["change", "investigate"].includes(kind)) fail(`unknown kind ${kind}`, "valid: change, investigate", 2);
+    const all = await api("/backlog", "POST", { repoIds: args, text: need(flags.say, "--say", spec), kind: kind === "investigate" ? "scout" : "engineer" });
+    out.push(`noted: ${args.length} ${args.length === 1 ? "task" : "tasks"} added, ${all.filter((t) => t.state === "queued").length} now waiting`);
+    help(["Run `wh backlog` to see the list", "Starting a task is `wh start <task>`"]);
+  } else if (command === "backlog") {
+    const rows = (s.backlog ?? []).filter((t) => !flags.repo || t.repo === flags.repo).map((t) => ({ id: t.id, repo: t.repo, state: t.state === "in_flight" ? "started" : t.state, task: clip(t.title, 100) }));
+    table("later", rows, ["id", "repo", "state", "task"], `0 tasks noted for later${flags.repo ? " in " + flags.repo : ""}`);
+    help(rows.length ? ["Run `wh start <task>` to start one as a mission"] : ['Run `wh later <repo> --say "<what to do>"` to note one']);
+  } else if (command === "start") {
+    const id = need(args[0], "a task id", spec);
+    if (flags.mode && !["scout", "builder", "engineer", "night"].includes(flags.mode)) fail(`unknown mode ${flags.mode}`, "valid: scout, builder, engineer, night", 2);
+    const m = await api(`/backlog/${encodeURIComponent(id)}/start`, "POST", { mode: flags.mode });
+    table("started", [{ id: m.id, repo: m.repoId, mode: m.mode }], ["id", "repo", "mode"]);
+    help([`Run \`wh wait ${m.id}\` to block until it stops`]);
   } else if (command === "plan") {
     const p = await api("/plans", "POST", { goal: need(flags.goal, "--goal", spec), repoIds: args });
     kv("plan", p.id); kv("state", p.status);

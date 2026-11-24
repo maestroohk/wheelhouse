@@ -12,7 +12,13 @@ You give short instructions. Agents work in parallel, one per repo, each in its 
 
 This builds and starts the API on http://localhost:5299 and the UI on http://localhost:3518, then opens the browser. Ctrl+C stops both.
 
-Needs: .NET 10 SDK, Node 20+, git, and the Claude Code CLI signed in (`claude`, then `/login`, once).
+Needs: .NET 10 SDK, Node 20+, git, and the Claude Code CLI signed in (`claude auth login`, once).
+
+Optional tools, each used when installed: `treehouse` (mission folders), `no-mistakes` (Ship), and from npm `gnhf` (unattended runs), `lavish-axi` (review pages), `tasks-axi` (the Later list):
+
+```powershell
+npm install -g gnhf lavish-axi tasks-axi
+```
 
 ## How it works
 
@@ -25,6 +31,7 @@ Needs: .NET 10 SDK, Node 20+, git, and the Claude Code CLI signed in (`claude`, 
   - *Engineer* edits and can run build, test and package commands on an isolated branch.
   - *Unattended* keeps working on one objective for hours without you, committing each step on its own `gnhf/*` branch. It stops after a set number of steps or hours (Settings), and the branch then comes up for review like any other mission. Run by [gnhf](https://github.com/kunchenguid/gnhf).
 - **Plan first.** For a goal that spans repos, type it and press *Plan first*. A planner reads the picked repos (or, with none picked, the ones you've touched in the last month) and writes one task per repo, says why, and lists the repos it left out. Edit any task, untick what you don't want, tell it what to change, then *Launch*. Nothing runs before that. Its rules come from [firstmate](https://github.com/kunchenguid/firstmate): keep your ask as stated, one independently checkable task per repo.
+- **Later.** Thought of something for a repo but don't want to start it now? Pick the repo, type it, press *Later*. It goes on the Later list (and shows as "2 later" on the repo in the fleet). *Start* turns a task into a mission; it is ticked off when you keep or ship the work, and goes back on the list if you discard it. The list is kept by [tasks-axi](https://github.com/kunchenguid/tasks-axi) in `%USERPROFILE%\.wheelhouse\backlog.md`, so other agents and tools that use tasks-axi see the same list.
 - **Playbooks.** Type `/` in the instruction box for saved instructions: "Where was I?", "Review my uncommitted work", "Add tests for…", "Fix the failing tests", "Update packages safely" and more. Picking one fills the box and sets how much the agent may do; a `{{blank}}` is selected for you to type over. *Save as playbook* keeps any instruction you've typed for next time.
 - **Fix until green.** When Wheelhouse's checks fail after an agent's turn, the failing output goes straight back to the agent, twice by default (Settings), before the mission is put in front of you. The card shows how many times that happened.
 - **Missions** (middle). What each agent is doing right now, in a few words.
@@ -57,6 +64,7 @@ Wheelhouse uses existing tools where they exist instead of rewriting them.
 | Review, test, push, pull request, CI gate | [no-mistakes](https://github.com/kunchenguid/no-mistakes) (`no-mistakes axi run` / `respond`) | In use. Its review and test steps need a signed-in agent |
 | Unattended runs | [gnhf](https://github.com/kunchenguid/gnhf) (`gnhf --worktree`) | In use |
 | Reading long output and replying on it | [lavish-axi](https://github.com/kunchenguid/lavish-axi) | In use |
+| Things noted for later, per repo | [tasks-axi](https://github.com/kunchenguid/tasks-axi) | In use |
 | Design of the `wh` command line | [axi](https://github.com/kunchenguid/axi) | In use (its rules; `wh` is written here) |
 | Agents other than Claude Code | [acpx](https://github.com/kunchenguid/acpx) / Agent Client Protocol | Later |
 
@@ -83,6 +91,8 @@ api/Wheelhouse.Api   .NET 10 minimal API
   Gnhf.cs            unattended runs through gnhf
   Lavish.cs          review pages and what comes back from them
   Planner.cs         one goal split into a task per repo
+  Backlog.cs         the Later list, through tasks-axi
+  Playbooks.cs       saved instructions
   Program.cs         HTTP endpoints and the event stream
 web/                 Next.js UI
 docs/features.html   feature plan
@@ -92,7 +102,7 @@ Adding another agent (Codex, Gemini CLI, a local model) means implementing `IAge
 
 ## Not built yet
 
-Playbooks kept in a repo for a team, pull request and CI state on the fleet (gh-axi), a quota gauge (quota-axi), a backlog per repo (tasks-axi). See `docs/features.html`.
+Playbooks kept in a repo for a team, pull request and CI state on the fleet (gh-axi), a quota gauge (quota-axi). See `docs/features.html`.
 
 ## Signing in
 

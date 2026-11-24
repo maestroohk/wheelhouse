@@ -16,12 +16,14 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<MissionService>())
 builder.Services.AddSingleton<Lavish>();
 builder.Services.AddSingleton<Planner>();
 builder.Services.AddSingleton<Playbooks>();
+builder.Services.AddSingleton<Backlog>();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
     .SetIsOriginAllowed(origin => Uri.TryCreate(origin, UriKind.Absolute, out var u) && u.IsLoopback)
     .AllowAnyHeader()
     .AllowAnyMethod()));
 
 var app = builder.Build();
+app.Services.GetRequiredService<Backlog>();
 app.UseCors();
 
 // Every WheelhouseException is a message meant for the person at the screen.
@@ -39,9 +41,9 @@ var api = app.MapGroup("/api");
 
 api.MapGet("/health", () => new { ok = true, name = "wheelhouse", version = "0.1.0" });
 
-api.MapGet("/tools", async (CancellationToken ct) => new { treehouse = await Treehouse.AvailableAsync(ct), noMistakes = await NoMistakes.AvailableAsync(ct), gnhf = await Gnhf.AvailableAsync(ct), lavish = await Lavish.AvailableAsync(ct) });
+api.MapGet("/tools", async (CancellationToken ct) => new { treehouse = await Treehouse.AvailableAsync(ct), noMistakes = await NoMistakes.AvailableAsync(ct), gnhf = await Gnhf.AvailableAsync(ct), lavish = await Lavish.AvailableAsync(ct), tasks = await Backlog.AvailableAsync(ct) });
 
-api.MapGet("/state", async (RepoRegistry repos, MissionService missions, SettingsStore settings, Planner planner, Playbooks playbooks, CancellationToken ct) => new
+api.MapGet("/state", async (RepoRegistry repos, MissionService missions, SettingsStore settings, Planner planner, Playbooks playbooks, Backlog backlog, CancellationToken ct) => new
 {
     repos = await repos.GetAsync(false, ct),
     missions = missions.Snapshot(),
@@ -49,6 +51,7 @@ api.MapGet("/state", async (RepoRegistry repos, MissionService missions, Setting
     costToday = missions.CostToday(),
     plans = planner.Snapshot(),
     playbooks = playbooks.All(),
+    backlog = await backlog.ListAsync(ct),
 });
 
 api.MapPost("/repos/refresh", async (RepoRegistry repos, CancellationToken ct) => await repos.GetAsync(true, ct));
@@ -102,6 +105,12 @@ api.MapPost("/plans", async (CreatePlanRequest req, Planner planner, Cancellatio
 api.MapPost("/plans/{id}/revise", async (string id, RevisePlanRequest req, Planner planner, CancellationToken ct) => await planner.ReviseAsync(id, req.Text, ct));
 api.MapPost("/plans/{id}/launch", async (string id, LaunchPlanRequest req, Planner planner, CancellationToken ct) => await planner.LaunchAsync(id, req, ct));
 api.MapDelete("/plans/{id}", (string id, Planner planner) => { planner.Remove(id); return new { ok = true }; });
+
+api.MapGet("/backlog", async (Backlog backlog, CancellationToken ct) => await backlog.ListAsync(ct));
+api.MapPost("/backlog", async (AddBacklogRequest req, Backlog backlog, CancellationToken ct) => await backlog.AddAsync(req, ct));
+api.MapPost("/backlog/{id}/start", async (string id, StartBacklogRequest req, Backlog backlog, CancellationToken ct) => MissionService.Snapshot(await backlog.StartAsync(id, req.Mode, ct)));
+api.MapPost("/backlog/{id}/done", async (string id, Backlog backlog, CancellationToken ct) => await backlog.DoneAsync(id, ct));
+api.MapDelete("/backlog/{id}", async (string id, Backlog backlog, CancellationToken ct) => await backlog.RemoveAsync(id, ct));
 
 api.MapGet("/playbooks", (Playbooks playbooks) => playbooks.All());
 api.MapPost("/playbooks", (SavePlaybookRequest req, Playbooks playbooks) => { playbooks.Save(req); return playbooks.All(); });

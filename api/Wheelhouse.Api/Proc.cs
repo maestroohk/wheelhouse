@@ -140,4 +140,28 @@ public static class Text
     }
 
     public static string NewId() => Guid.NewGuid().ToString("N")[..8];
+
+    /// <summary>Splits one row of a TOON table: comma separated, with double-quoted cells and backslash escapes.</summary>
+    public static List<string> Csv(string row)
+    {
+        var cells = new List<string>();
+        var cur = new System.Text.StringBuilder();
+        var quoted = false;
+        for (var i = 0; i < row.Length; i++)
+        {
+            var ch = row[i];
+            if (quoted)
+            {
+                if (ch == '\\' && i + 1 < row.Length) { var n = row[++i]; cur.Append(n == 'n' ? '\n' : n); }
+                else if (ch == '"') quoted = false;
+                else cur.Append(ch);
+            }
+            else if (ch == '"') quoted = true;
+            else if (ch == ',') { cells.Add(cur.ToString()); cur.Clear(); }
+            else cur.Append(ch);
+        }
+        cells.Add(cur.ToString());
+        return cells;
+    }
+
 }

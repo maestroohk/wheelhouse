@@ -31,13 +31,7 @@ public sealed class Lavish
         this.log = log;
     }
 
-    static (string File, List<string> Args) Command(params string[] args)
-    {
-        if (!OperatingSystem.IsWindows()) return ("lavish-axi", args.ToList());
-        var all = new List<string> { "/d", "/c", "lavish-axi" };
-        all.AddRange(args);
-        return ("cmd.exe", all);
-    }
+    static (string File, List<string> Args) Command(params string[] args) => NodeTool.Command("lavish-axi", args);
 
     public static async Task<bool> AvailableAsync(CancellationToken ct)
     {

@@ -12,6 +12,7 @@ type Props = {
   onMode: (m: Mode) => void;
   onSend: (instruction: string) => Promise<boolean>;
   onPlan: (goal: string) => Promise<boolean>;
+  onLater: (text: string) => Promise<boolean>;
   onSavePlaybook: (name: string, text: string, mode: Mode) => Promise<boolean>;
   onRemovePlaybook: (id: string) => void;
 };
@@ -23,7 +24,7 @@ const BLANK = /\{\{[^}]*\}\}/;
  * The one place instructions are typed. `@name` picks repos; `/` picks a saved instruction (a playbook).
  * The same instruction goes to each picked repo as its own mission.
  */
-export default function Helm({ repos, playbooks, targets, mode, onTargets, onMode, onSend, onPlan, onSavePlaybook, onRemovePlaybook }: Props) {
+export default function Helm({ repos, playbooks, targets, mode, onTargets, onMode, onSend, onPlan, onLater, onSavePlaybook, onRemovePlaybook }: Props) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [pick, setPick] = useState(0);
@@ -197,6 +198,15 @@ export default function Helm({ repos, playbooks, targets, mode, onTargets, onMod
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
           }}
         />
+        <button
+          className="btn"
+          style={{ padding: "10px 14px" }}
+          disabled={!ready || sending}
+          onClick={() => run(onLater)}
+          title="Note this for the picked repos without starting anything. It goes on the Later list."
+        >
+          Later
+        </button>
         <button
           className="btn"
           style={{ padding: "10px 14px" }}

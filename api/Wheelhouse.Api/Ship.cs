@@ -133,14 +133,14 @@ public static partial class NoMistakes
             if (head.Success) { table = head.Groups[1].Value; continue; }
             if (table == "steps")
             {
-                var c = Csv(trimmed);
+                var c = Text.Csv(trimmed);
                 if (c.Count >= 4) state.Steps.Add(new ShipStep { Step = c[0], Status = c[1], Findings = int.TryParse(c[2], out var n) ? n : 0, DurationMs = long.TryParse(c[3], out var d) ? d : 0 });
                 else table = null;
                 continue;
             }
             if (table == "findings")
             {
-                var c = Csv(trimmed);
+                var c = Text.Csv(trimmed);
                 if (c.Count >= 5) state.Findings.Add(new ShipFinding { Id = c[0], Severity = c[1], File = c[2], Description = c[3], Action = c[4] });
                 else table = null;
                 continue;
@@ -164,28 +164,6 @@ public static partial class NoMistakes
     {
         s = s.Trim();
         return s.Length >= 2 && s[0] == '"' && s[^1] == '"' ? s[1..^1].Replace("\\\"", "\"").Replace("\\\\", "\\") : s;
-    }
-
-    static List<string> Csv(string row)
-    {
-        var cells = new List<string>();
-        var cur = new System.Text.StringBuilder();
-        var quoted = false;
-        for (var i = 0; i < row.Length; i++)
-        {
-            var ch = row[i];
-            if (quoted)
-            {
-                if (ch == '\\' && i + 1 < row.Length) { cur.Append(row[++i]); }
-                else if (ch == '"') quoted = false;
-                else cur.Append(ch);
-            }
-            else if (ch == '"') quoted = true;
-            else if (ch == ',') { cells.Add(cur.ToString()); cur.Clear(); }
-            else cur.Append(ch);
-        }
-        cells.Add(cur.ToString());
-        return cells;
     }
 
     public static string Clean(string s) =>

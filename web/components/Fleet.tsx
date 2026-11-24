@@ -6,6 +6,7 @@ import { ago, isActive, needsYou, type Mission, type Repo } from "@/lib/api";
 type Props = {
   repos: Repo[];
   missions: Mission[];
+  later: Record<string, number>;
   targets: string[];
   now: number;
   onToggle: (id: string) => void;
@@ -17,7 +18,7 @@ type Props = {
 
 const DAY = 86_400_000;
 
-export default function Fleet({ repos, missions, targets, now, onToggle, onPin, onLogbook, onRefresh, refreshing }: Props) {
+export default function Fleet({ repos, missions, later, targets, now, onToggle, onPin, onLogbook, onRefresh, refreshing }: Props) {
   const [query, setQuery] = useState("");
   const [showQuiet, setShowQuiet] = useState(false);
 
@@ -68,6 +69,7 @@ export default function Fleet({ repos, missions, targets, now, onToggle, onPin, 
         <span className="sub">
           <span className="clip mono">{r.branch ?? "no branch"}</span>
           {r.dirty > 0 && <span className="warn nowrap">{r.dirty} changed</span>}
+          {later[r.id] > 0 && <span className="nowrap" title="Noted for later">{later[r.id]} later</span>}
           {r.ahead > 0 && <span className="nowrap">↑{r.ahead}</span>}
           {r.behind > 0 && <span className="nowrap">↓{r.behind}</span>}
           {s?.active ? <span className="nowrap" style={{ color: "var(--helm)" }}>{s.active} working</span> : null}

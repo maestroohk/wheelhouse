@@ -25,6 +25,9 @@ public sealed class MissionService : IHostedService
     private readonly ConcurrentDictionary<string, byte> dirty = new();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> repoGitLocks = new();
     private readonly object pumpGate = new();
+
+    /// <summary>Raised each time a mission is saved, for parts of Wheelhouse that follow missions (the backlog).</summary>
+    public event Action<Mission>? Changed;
     private readonly CancellationTokenSource stopping = new();
     private Task? flusher;
 
@@ -91,6 +94,7 @@ public sealed class MissionService : IHostedService
                     m.UpdatedAt = DateTimeOffset.Now;
                     Json.Write(Path.Combine(paths.MissionsDir, $"{id}.json"), m);
                     bus.Publish("mission", m);
+                    try { Changed?.Invoke(m); } catch { }
                 }
                 if (events.TryGetValue(id, out var ev))
                     lock (ev) Json.Write(Path.Combine(paths.EventsDir, $"{id}.json"), ev);
@@ -159,6 +163,7 @@ public sealed class MissionService : IHostedService
                 Id = Text.NewId(),
                 GroupId = group,
                 PlanId = req.PlanId,
+                BacklogId = req.BacklogId,
                 RepoId = repo.Id,
                 RepoName = repo.Name,
                 RepoPath = repo.Path,

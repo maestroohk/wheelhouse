@@ -8,6 +8,8 @@
 
 Rules for changes:
 
+- npm-installed tools (gnhf, lavish-axi, tasks-axi) are started through `NodeTool.Command`, which runs the package's script with node. Never pass developer-typed text through `cmd /c`: quotes get mangled and `&` runs a second command.
+
 - Text shown in the UI is for the developer using it: plain words, no internal terms. Errors meant for the screen are thrown as `WheelhouseException`.
 - Agents never commit, push or switch branches. Only `MissionService` runs git commands that change a repo, and only on `wheelhouse/*` branches. The exceptions are the tools it hands off to: gnhf commits on its own `gnhf/*` branch during an unattended run, and no-mistakes pushes when the developer presses Ship.
 - The brief (`Brief` in `Models.cs`, contract text in `AgentRunner.cs`) is the product. Keep it short and fixed in shape.
@@ -21,6 +23,7 @@ Use `wh` (in this folder: `wh.cmd` on Windows, `./wh` elsewhere; it needs only N
 - `wh wait <id>` blocks until a mission stops, then shows its brief, checks and files. `wh show <id> --diff` adds the change.
 - `wh reply <id> --say "…"` answers a question or asks for a revision.
 - `wh adopt --repo <id> --worktree <path> --title "…" [--brief-file brief.json]` hands in work you did yourself in a git worktree (uncommitted, on its own branch), so it gets Wheelhouse's checks and the developer's review.
+- `wh later <repo>... --say "…"` notes something for later without starting it; `wh backlog` lists what is noted; `wh start <task>` starts one. Use `later` for follow-ups you notice while doing something else, so they are not lost and not started unasked.
 - `wh plan --goal "…" [<repo>...]`, `wh plans`, `wh launch <plan>` for a goal that spans repos.
 - `wh keep`, `wh discard`, `wh ship --yes-push` and `wh launch` are the developer's decisions. Do them only when the developer has said so.
 - `wh <command> --help` for any command. Set `WHEELHOUSE_URL` if Wheelhouse is not on `http://localhost:5299`.
@@ -37,6 +40,7 @@ Use `wh` (in this folder: `wh.cmd` on Windows, `./wh` elsewhere; it needs only N
 - `POST /missions/{id}/keep` `{"message":"…"}`, `POST /missions/{id}/discard`, `POST /missions/{id}/cancel`
 - `POST /missions/{id}/ship` `{"message":"…"}` — commit and run the no-mistakes pipeline; this pushes, so only on the developer's say-so
 - `POST /missions/{id}/page` — write the review page and open it in Lavish; returns its URL
+- `GET /backlog`, `POST /backlog` `{"repoIds":["…"],"text":"title\nnotes","kind":"engineer|scout"}`, `POST /backlog/{id}/start` `{"mode":"…"}`, `POST /backlog/{id}/done`, `DELETE /backlog/{id}`
 - `POST /plans` `{"goal":"…","repoIds":[]}` — draft a cross-repo plan; `POST /plans/{id}/revise` `{"text":"…"}`; `POST /plans/{id}/launch` `{"steps":[{"repoId":"…","include":true,"mode":"engineer","spec":"…"}]}`; `DELETE /plans/{id}`
 - `GET /tools` — which of treehouse, no-mistakes, gnhf and lavish-axi are installed
 - `GET /stream` — server-sent events: `mission`, `repos`, `mission-removed`

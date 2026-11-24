@@ -55,6 +55,7 @@ export type Mission = {
   id: string;
   groupId: string | null;
   planId: string | null;
+  backlogId: string | null;
   repoId: string;
   repoName: string;
   repoPath: string;
@@ -120,9 +121,11 @@ export type Plan = {
 };
 export type PlanStepEdit = { repoId: string; include: boolean; mode?: Mode; spec?: string };
 
+export type BacklogTask = { id: string; title: string; state: "queued" | "in_flight" | "held" | "done"; kind: string; repo: string; body: string; created: string; closed: string };
+
 export type Playbook = { id: string; name: string; text: string; mode: Mode; builtIn: boolean };
 
-export type State = { repos: Repo[]; missions: Mission[]; settings: Settings; costToday: number; plans: Plan[]; playbooks: Playbook[] };
+export type State = { repos: Repo[]; missions: Mission[]; settings: Settings; costToday: number; plans: Plan[]; playbooks: Playbook[]; backlog: BacklogTask[] };
 export type LogEntry = { at: string; kind: "commit" | "mission"; text: string; who: string | null; missionId: string | null };
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
@@ -168,6 +171,10 @@ export const api = {
   revisePlan: (id: string, text: string) => post<Plan>(`/plans/${id}/revise`, { text }),
   launchPlan: (id: string, steps: PlanStepEdit[]) => post<Plan>(`/plans/${id}/launch`, { steps }),
   removePlan: (id: string) => call<{ ok: boolean }>(`/plans/${id}`, { method: "DELETE" }),
+  addBacklog: (repoIds: string[], text: string, kind: Mode) => post<BacklogTask[]>("/backlog", { repoIds, text, kind }),
+  startBacklog: (id: string) => post<Mission>(`/backlog/${id}/start`, {}),
+  doneBacklog: (id: string) => post<BacklogTask[]>(`/backlog/${id}/done`),
+  removeBacklog: (id: string) => call<BacklogTask[]>(`/backlog/${id}`, { method: "DELETE" }),
   savePlaybook: (name: string, text: string, mode: Mode) => post<Playbook[]>("/playbooks", { name, text, mode }),
   removePlaybook: (id: string) => call<Playbook[]>(`/playbooks/${id}`, { method: "DELETE" }),
   tools: () => call<{ treehouse: boolean; noMistakes: boolean; gnhf: boolean; lavish: boolean }>("/tools"),

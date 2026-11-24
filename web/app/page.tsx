@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { API, api, isActive, money, needsYou, type Mission, type Mode, type Plan, type Playbook, type Repo, type Settings } from "@/lib/api";
+import { API, api, isActive, money, needsYou, type BacklogTask, type Mission, type Mode, type Plan, type Playbook, type Repo, type Settings } from "@/lib/api";
+import BacklogPanel from "@/components/BacklogPanel";
 import Chart from "@/components/Chart";
 import Fleet from "@/components/Fleet";
 import Helm from "@/components/Helm";
@@ -29,6 +30,7 @@ export default function Bridge() {
   const [missions, setMissions] = useState<Mission[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [playbooks, setPlaybooks] = useState<Playbook[]>([]);
+  const [backlog, setBacklog] = useState<BacklogTask[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [offline, setOffline] = useState<string | null>(null);
@@ -63,6 +65,7 @@ export default function Bridge() {
       setMissions(s.missions);
       setPlans(s.plans ?? []);
       setPlaybooks(s.playbooks ?? []);
+      setBacklog(s.backlog ?? []);
       setSettings(s.settings);
       setOffline(null);
     } catch (e) {
@@ -89,6 +92,7 @@ export default function Bridge() {
       if (msg.type === "mission") upsert(msg.payload as Mission);
       else if (msg.type === "repos") setRepos(msg.payload as Repo[]);
       else if (msg.type === "plan") upsertPlan(msg.payload as Plan);
+      else if (msg.type === "backlog") setBacklog(msg.payload as BacklogTask[]);
       else if (msg.type === "plan-removed") setPlans((l) => l.filter((p) => p.id !== (msg.payload as { id: string }).id));
       else if (msg.type === "mission-removed") setMissions((l) => l.filter((m) => m.id !== (msg.payload as { id: string }).id));
     };
@@ -149,6 +153,25 @@ export default function Bridge() {
     setBusy(null);
   };
 
+  const backlogAct = async (id: string, fn: () => Promise<BacklogTask[] | Mission>) => {
+    setBusy(id);
+    setToast(null);
+    try {
+      const r = await fn();
+      if (Array.isArray(r)) setBacklog(r);
+      else upsert(r);
+    } catch (e) {
+      setToast((e as Error).message);
+    }
+    setBusy(null);
+  };
+
+  const later = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const t of backlog) if (t.state === "queued" && t.repo) counts[t.repo] = (counts[t.repo] ?? 0) + 1;
+    return counts;
+  }, [backlog]);
+
   const refresh = async () => {
     setRefreshing(true);
     try { setRepos(await api.refreshRepos()); } catch (e) { setToast((e as Error).message); }
@@ -206,6 +229,7 @@ export default function Bridge() {
         <Fleet
           repos={repos}
           missions={missions}
+          later={later}
           targets={targets}
           now={now}
           onToggle={(id) => setTargets((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id]))}
@@ -249,6 +273,14 @@ export default function Bridge() {
               {offline && <span>{offline}</span>}
             </div>
           )}
+          <BacklogPanel
+            tasks={backlog}
+            repos={repos}
+            busy={busy}
+            onStart={(id) => backlogAct(id, () => api.startBacklog(id))}
+            onDone={(id) => backlogAct(id, () => api.doneBacklog(id))}
+            onRemove={(id) => backlogAct(id, () => api.removeBacklog(id))}
+          />
           {finished.length > 0 && (
             <>
               <div className="col-head" style={{ marginTop: 10 }}>
@@ -277,6 +309,9 @@ export default function Bridge() {
 
       <Helm repos={repos} targets={targets.filter((t) => repos.length === 0 || repos.some((r) => r.id === t))} mode={mode} onTargets={setTargets} onMode={setMode} onSend={send} onPlan={startPlan}
         playbooks={playbooks}
+        onLater={async (text) => {
+          try { setBacklog(await api.addBacklog(targets, text, mode)); return true; } catch (e) { setToast((e as Error).message); return false; }
+        }}
         onSavePlaybook={async (name, text, m) => {
           try { setPlaybooks(await api.savePlaybook(name, text, m)); return true; } catch (e) { setToast((e as Error).message); return false; }
         }}
