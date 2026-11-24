@@ -24,6 +24,7 @@ Needs: .NET 10 SDK, Node 20+, git, and the Claude Code CLI signed in (`claude`, 
   - *Builder* edits files on an isolated branch. It can't run commands.
   - *Engineer* edits and can run build, test and package commands on an isolated branch.
   - *Unattended* keeps working on one objective for hours without you, committing each step on its own `gnhf/*` branch. It stops after a set number of steps or hours (Settings), and the branch then comes up for review like any other mission. Run by [gnhf](https://github.com/kunchenguid/gnhf).
+- **Plan first.** For a goal that spans repos, type it and press *Plan first*. A planner reads the picked repos (or, with none picked, the ones you've touched in the last month) and writes one task per repo, says why, and lists the repos it left out. Edit any task, untick what you don't want, tell it what to change, then *Launch*. Nothing runs before that. Its rules come from [firstmate](https://github.com/kunchenguid/firstmate): keep your ask as stated, one independently checkable task per repo.
 - **Missions** (middle). What each agent is doing right now, in a few words.
 - **Needs you** (right). Questions from agents with option buttons, changes ready for review, and failures. Answering resumes the same agent with its memory intact.
 - **Review.** Open a mission to see its brief, the diff per file, and check results. *Keep* commits on the mission's `wheelhouse/*` branch as you. *Discard* deletes the branch and folder. Or send a follow-up and the agent revises.
@@ -66,6 +67,7 @@ api/Wheelhouse.Api   .NET 10 minimal API
   Ship.cs            the no-mistakes pipeline: run, gates, answers
   Gnhf.cs            unattended runs through gnhf
   Lavish.cs          review pages and what comes back from them
+  Planner.cs         one goal split into a task per repo
   Program.cs         HTTP endpoints and the event stream
 web/                 Next.js UI
 docs/features.html   feature plan
@@ -75,7 +77,7 @@ Adding another agent (Codex, Gemini CLI, a local model) means implementing `IAge
 
 ## Not built yet
 
-Playbooks, cross-repo planning, fix-until-green, a `wh` command line. See `docs/features.html`.
+Playbooks, fix-until-green, a `wh` command line. See `docs/features.html`.
 
 ## Signing in
 

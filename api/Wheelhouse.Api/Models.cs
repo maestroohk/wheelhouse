@@ -72,6 +72,8 @@ public sealed class Mission
 {
     public string Id { get; set; } = "";
     public string? GroupId { get; set; }
+    /// <summary>The cross-repo plan this mission was launched from, if any.</summary>
+    public string? PlanId { get; set; }
     public string RepoId { get; set; } = "";
     public string RepoName { get; set; } = "";
     public string RepoPath { get; set; } = "";
@@ -107,7 +109,7 @@ public sealed class Mission
     public string? PageUrl { get; set; }
 }
 
-public record CreateMissionRequest(List<string> RepoIds, string Instruction, string? Mode);
+public record CreateMissionRequest(List<string> RepoIds, string Instruction, string? Mode, string? PlanId = null);
 public record ReplyRequest(string Text);
 public record AdoptRequest(string RepoId, string? Title, string Worktree, string? Instruction, string? Mode, string? Agent, Brief? Brief);
 public record KeepRequest(string? Message);

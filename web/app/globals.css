@@ -281,6 +281,20 @@ button.card-title:hover { color: var(--helm); }
 .btn.ship { border-color: var(--helm); color: var(--helm); }
 .btn.ship.armed { background: var(--helm); color: var(--sheet); }
 
+/* ---------- plans ---------- */
+.card.plan { border-color: var(--helm); }
+.card.plan p.card-title { margin: 0; }
+.steps { display: grid; gap: 10px; }
+.steps > li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; padding-top: 10px; border-top: 1px solid var(--rule); }
+.steps > li.off { opacity: 0.55; }
+.steps select { width: auto; padding: 3px 8px; font-size: 12.5px; }
+.steps textarea { grid-column: 1 / -1; font-size: 13px; line-height: 1.45; }
+.step-head { display: flex; gap: 8px; align-items: center; font-weight: 500; min-width: 0; }
+.step-why { grid-column: 1 / -1; }
+.steps.launched > li { grid-template-columns: minmax(90px, auto) auto minmax(0, 1fr); padding-top: 6px; }
+.step-link { border: 0; background: none; padding: 0; text-align: left; color: var(--helm); font-weight: 500; }
+.step-link:disabled { color: var(--ink-3); cursor: default; }
+
 /* ---------- helm prompt ---------- */
 .helm { border-top: 2px solid var(--ink); }
 .helm-line::before { content: "❯"; font: 600 20px var(--mono); color: var(--helm); align-self: center; }

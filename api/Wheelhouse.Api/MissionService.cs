@@ -147,6 +147,7 @@ public sealed class MissionService : IHostedService
             {
                 Id = Text.NewId(),
                 GroupId = group,
+                PlanId = req.PlanId,
                 RepoId = repo.Id,
                 RepoName = repo.Name,
                 RepoPath = repo.Path,

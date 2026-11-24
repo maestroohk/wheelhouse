@@ -9,9 +9,27 @@ public sealed class ScriptedRunner : IAgentRunner
 {
     public string Id => "scripted";
 
+    static async Task<AgentResult> PlanAsync(AgentRequest req, Action<AgentEvent> onEvent, string session, CancellationToken ct)
+    {
+        var ids = req.Prompt.Split('\n').Where(l => l.StartsWith("- id: ")).Select(l => l[6..].Split('|')[0].Trim()).ToList();
+        foreach (var id in ids)
+        {
+            onEvent(new AgentEvent("tool", $"Reading {id}/README.md"));
+            await Task.Delay(600, ct);
+        }
+        if (req.Prompt.Contains("unclear", StringComparison.OrdinalIgnoreCase))
+            return new AgentResult(true, "```plan\n{\"summary\": \"\", \"question\": \"Which behaviour do you want: a new command, or a change to the existing one?\", \"steps\": [], \"skipped\": []}\n```", null, 0.01, session);
+        var revised = req.Prompt.Contains("Your previous plan");
+        var take = ids.Count > 1 ? ids.Take(ids.Count - 1).ToList() : ids;
+        var steps = string.Join(",", take.Select(id => $"{{\"repo\": \"{id}\", \"mode\": \"engineer\", \"spec\": \"Add multiply to the calculator in src/Calc/Calculator.cs{(revised ? " and a test for it" : "")}. Done when the solution builds.\", \"out_of_scope\": \"Existing operations.\", \"why\": \"Calculator has Add and Subtract only.\"}}"));
+        var skipped = ids.Count > 1 ? $"{{\"repo\": \"{ids[^1]}\", \"why\": \"Nothing here is touched by the goal.\"}}" : "";
+        return new AgentResult(true, $"I read each repository.\n\n```plan\n{{\"summary\": \"One change per repository that has a calculator.\", \"question\": \"\", \"steps\": [{steps}], \"skipped\": [{skipped}]}}\n```", null, 0.02, session);
+    }
+
     public async Task<AgentResult> RunAsync(AgentRequest req, Action<AgentEvent> onEvent, CancellationToken ct)
     {
         var session = req.ResumeSessionId ?? Guid.NewGuid().ToString();
+        if (req.Contract != null && req.Contract.Contains("```plan")) return await PlanAsync(req, onEvent, session, ct);
         async Task Step(string kind, string text)
         {
             onEvent(new AgentEvent(kind, text));

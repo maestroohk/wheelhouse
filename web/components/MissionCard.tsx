@@ -85,6 +85,7 @@ export default function MissionCard({ m, now, busy, onOpen, onReply, onCancel, o
       <div className="card-top">
         <span className="repo clip">{m.repoName}</span>
         <span className="tag" title={modeInfo[m.mode].hint}>{modeInfo[m.mode].label}</span>
+        {m.planId && <span className="tag" title="Launched from a cross-repo plan">Plan</span>}
         <span className="grow" />
         <span className={`tag ${statusTone(m.status)}`}>{statusLabel[m.status]}</span>
       </div>

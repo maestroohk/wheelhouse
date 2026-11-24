@@ -26,5 +26,6 @@ The API on `http://localhost:5299/api` is the whole interface:
 - `POST /missions/{id}/keep` `{"message":"…"}`, `POST /missions/{id}/discard`, `POST /missions/{id}/cancel`
 - `POST /missions/{id}/ship` `{"message":"…"}` — commit and run the no-mistakes pipeline; this pushes, so only on the developer's say-so
 - `POST /missions/{id}/page` — write the review page and open it in Lavish; returns its URL
+- `POST /plans` `{"goal":"…","repoIds":[]}` — draft a cross-repo plan; `POST /plans/{id}/revise` `{"text":"…"}`; `POST /plans/{id}/launch` `{"steps":[{"repoId":"…","include":true,"mode":"engineer","spec":"…"}]}`; `DELETE /plans/{id}`
 - `GET /tools` — which of treehouse, no-mistakes, gnhf and lavish-axi are installed
 - `GET /stream` — server-sent events: `mission`, `repos`, `mission-removed`

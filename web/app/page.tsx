@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { API, api, isActive, money, needsYou, type Mission, type Mode, type Repo, type Settings } from "@/lib/api";
+import { API, api, isActive, money, needsYou, type Mission, type Mode, type Plan, type Repo, type Settings } from "@/lib/api";
 import Chart from "@/components/Chart";
 import Fleet from "@/components/Fleet";
 import Helm from "@/components/Helm";
 import MissionCard from "@/components/MissionCard";
 import MissionDrawer from "@/components/MissionDrawer";
+import PlanCard from "@/components/PlanCard";
 import { Logbook, SettingsPanel } from "@/components/Panels";
 
 const remember = {
@@ -26,6 +27,7 @@ const remember = {
 export default function Bridge() {
   const [repos, setRepos] = useState<Repo[]>([]);
   const [missions, setMissions] = useState<Mission[]>([]);
+  const [plans, setPlans] = useState<Plan[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [offline, setOffline] = useState<string | null>(null);
@@ -49,11 +51,16 @@ export default function Bridge() {
     });
   }, []);
 
+  const upsertPlan = useCallback((p: Plan) => {
+    setPlans((list) => (list.some((x) => x.id === p.id) ? list.map((x) => (x.id === p.id ? p : x)) : [p, ...list]));
+  }, []);
+
   const load = useCallback(async () => {
     try {
       const s = await api.state();
       setRepos(s.repos);
       setMissions(s.missions);
+      setPlans(s.plans ?? []);
       setSettings(s.settings);
       setOffline(null);
     } catch (e) {
@@ -79,12 +86,14 @@ export default function Bridge() {
       const msg = JSON.parse(e.data) as { type: string; payload: unknown };
       if (msg.type === "mission") upsert(msg.payload as Mission);
       else if (msg.type === "repos") setRepos(msg.payload as Repo[]);
+      else if (msg.type === "plan") upsertPlan(msg.payload as Plan);
+      else if (msg.type === "plan-removed") setPlans((l) => l.filter((p) => p.id !== (msg.payload as { id: string }).id));
       else if (msg.type === "mission-removed") setMissions((l) => l.filter((m) => m.id !== (msg.payload as { id: string }).id));
     };
     es.onopen = () => { if (dropped) { dropped = false; load(); } };
     es.onerror = () => { dropped = true; setOffline("Lost contact with Wheelhouse. Trying again…"); };
     return () => es.close();
-  }, [load, upsert]);
+  }, [load, upsert, upsertPlan]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -112,6 +121,30 @@ export default function Bridge() {
       setToast((e as Error).message);
       return false;
     }
+  };
+
+  const startPlan = async (goal: string) => {
+    setToast(null);
+    try {
+      upsertPlan(await api.createPlan(goal, targets));
+      return true;
+    } catch (e) {
+      setToast((e as Error).message);
+      return false;
+    }
+  };
+
+  const planAct = async (id: string, fn: () => Promise<Plan | { ok: boolean }>) => {
+    setBusy(id);
+    setToast(null);
+    try {
+      const r = await fn();
+      if ("goal" in r) upsertPlan(r);
+      else setPlans((l) => l.filter((p) => p.id !== id));
+    } catch (e) {
+      setToast((e as Error).message);
+    }
+    setBusy(null);
   };
 
   const refresh = async () => {
@@ -182,6 +215,26 @@ export default function Bridge() {
         </aside>
 
         <main className="col" aria-label="Missions">
+          {plans.length > 0 && (
+            <>
+              <div className="col-head">
+                <span className="cap">Plans</span>
+                <span className="count">{plans.length}</span>
+              </div>
+              {plans.map((p) => (
+                <PlanCard
+                  key={p.id}
+                  plan={p}
+                  missions={missions}
+                  busy={busy === p.id}
+                  onLaunch={(steps) => planAct(p.id, () => api.launchPlan(p.id, steps))}
+                  onRevise={(text) => planAct(p.id, () => api.revisePlan(p.id, text))}
+                  onRemove={() => planAct(p.id, () => api.removePlan(p.id))}
+                  onOpenMission={setOpenId}
+                />
+              ))}
+            </>
+          )}
           <div className="col-head">
             <span className="cap">Under way</span>
             <span className="count">{underway.length}</span>
@@ -220,7 +273,7 @@ export default function Bridge() {
         </aside>
       </div>
 
-      <Helm repos={repos} targets={targets.filter((t) => repos.length === 0 || repos.some((r) => r.id === t))} mode={mode} onTargets={setTargets} onMode={setMode} onSend={send} />
+      <Helm repos={repos} targets={targets.filter((t) => repos.length === 0 || repos.some((r) => r.id === t))} mode={mode} onTargets={setTargets} onMode={setMode} onSend={send} onPlan={startPlan} />
 
       {open && <MissionDrawer key={open.id} m={open} busy={busy === open.id} onClose={() => setOpenId(null)} {...handlers(open)} />}
       {logbookId && (

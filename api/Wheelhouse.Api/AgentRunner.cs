@@ -3,7 +3,8 @@ using System.Text.RegularExpressions;
 
 namespace Wheelhouse.Api;
 
-public record AgentRequest(string Cwd, string Prompt, string Mode, string? ResumeSessionId, string? Model, TimeSpan Timeout);
+/// <param name="Contract">Instructions that replace the usual mission contract, for agents that are not doing a mission (the planner).</param>
+public record AgentRequest(string Cwd, string Prompt, string Mode, string? ResumeSessionId, string? Model, TimeSpan Timeout, string? Contract = null);
 
 public record AgentEvent(string Kind, string Text);
 
@@ -46,7 +47,7 @@ public sealed class ClaudeCodeRunner : IAgentRunner
     {
         var s = settings.Get();
         // The prompt goes in on stdin: no quoting or command-line length problems on Windows.
-        var args = new List<string> { "-p", "--output-format", "stream-json", "--verbose", "--append-system-prompt", Contract(req.Mode) };
+        var args = new List<string> { "-p", "--output-format", "stream-json", "--verbose", "--append-system-prompt", req.Contract ?? Contract(req.Mode) };
         var model = req.Model ?? s.Model;
         if (!string.IsNullOrWhiteSpace(model)) { args.Add("--model"); args.Add(model!); }
         if (!string.IsNullOrWhiteSpace(req.ResumeSessionId)) { args.Add("--resume"); args.Add(req.ResumeSessionId!); }

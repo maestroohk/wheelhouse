@@ -14,6 +14,7 @@ else
 builder.Services.AddSingleton<MissionService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MissionService>());
 builder.Services.AddSingleton<Lavish>();
+builder.Services.AddSingleton<Planner>();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
     .SetIsOriginAllowed(origin => Uri.TryCreate(origin, UriKind.Absolute, out var u) && u.IsLoopback)
     .AllowAnyHeader()
@@ -39,12 +40,13 @@ api.MapGet("/health", () => new { ok = true, name = "wheelhouse", version = "0.1
 
 api.MapGet("/tools", async (CancellationToken ct) => new { treehouse = await Treehouse.AvailableAsync(ct), noMistakes = await NoMistakes.AvailableAsync(ct), gnhf = await Gnhf.AvailableAsync(ct), lavish = await Lavish.AvailableAsync(ct) });
 
-api.MapGet("/state", async (RepoRegistry repos, MissionService missions, SettingsStore settings, CancellationToken ct) => new
+api.MapGet("/state", async (RepoRegistry repos, MissionService missions, SettingsStore settings, Planner planner, CancellationToken ct) => new
 {
     repos = await repos.GetAsync(false, ct),
     missions = missions.All(),
     settings = settings.Get(),
     costToday = missions.CostToday(),
+    plans = planner.All(),
 });
 
 api.MapPost("/repos/refresh", async (RepoRegistry repos, CancellationToken ct) => await repos.GetAsync(true, ct));
@@ -93,6 +95,11 @@ api.MapPost("/missions/{id}/ship", async (string id, KeepRequest req, MissionSer
 api.MapPost("/missions/{id}/page", async (string id, Lavish lavish, CancellationToken ct) => new { url = await lavish.OpenAsync(id, ct) });
 api.MapPost("/missions/{id}/discard", async (string id, MissionService missions, CancellationToken ct) => await missions.DiscardAsync(id, ct));
 api.MapDelete("/missions/{id}", (string id, MissionService missions) => { missions.Archive(id); return new { ok = true }; });
+
+api.MapPost("/plans", async (CreatePlanRequest req, Planner planner, CancellationToken ct) => await planner.CreateAsync(req, ct));
+api.MapPost("/plans/{id}/revise", async (string id, RevisePlanRequest req, Planner planner, CancellationToken ct) => await planner.ReviseAsync(id, req.Text, ct));
+api.MapPost("/plans/{id}/launch", async (string id, LaunchPlanRequest req, Planner planner, CancellationToken ct) => await planner.LaunchAsync(id, req, ct));
+api.MapDelete("/plans/{id}", (string id, Planner planner) => { planner.Remove(id); return new { ok = true }; });
 
 api.MapGet("/settings", (SettingsStore settings) => settings.Get());
 api.MapPut("/settings", (Settings incoming, SettingsStore settings, RepoRegistry repos) =>

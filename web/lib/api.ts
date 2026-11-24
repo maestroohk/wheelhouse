@@ -54,6 +54,7 @@ export type ShipState = { runId: string | null; outcome: string | null; error: s
 export type Mission = {
   id: string;
   groupId: string | null;
+  planId: string | null;
   repoId: string;
   repoName: string;
   repoPath: string;
@@ -99,7 +100,25 @@ export type Settings = {
   pinned: string[];
 };
 
-export type State = { repos: Repo[]; missions: Mission[]; settings: Settings; costToday: number };
+export type PlanStep = { repoId: string; repoName: string; mode: Mode; spec: string; outOfScope: string; why: string; include: boolean; missionId: string | null };
+export type PlanSkip = { repoId: string; repoName: string; why: string };
+export type Plan = {
+  id: string;
+  goal: string;
+  status: "drafting" | "ready" | "launched" | "failed";
+  summary: string;
+  question: string | null;
+  error: string | null;
+  activity: string;
+  candidates: string[];
+  steps: PlanStep[];
+  skipped: PlanSkip[];
+  createdAt: string;
+  updatedAt: string;
+};
+export type PlanStepEdit = { repoId: string; include: boolean; mode?: Mode; spec?: string };
+
+export type State = { repos: Repo[]; missions: Mission[]; settings: Settings; costToday: number; plans: Plan[] };
 export type LogEntry = { at: string; kind: "commit" | "mission"; text: string; who: string | null; missionId: string | null };
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
@@ -141,6 +160,10 @@ export const api = {
   recheck: (id: string) => post<Mission>(`/missions/${id}/checks`),
   ship: (id: string, message?: string) => post<Mission>(`/missions/${id}/ship`, { message }),
   page: (id: string) => post<{ url: string }>(`/missions/${id}/page`),
+  createPlan: (goal: string, repoIds: string[]) => post<Plan>("/plans", { goal, repoIds }),
+  revisePlan: (id: string, text: string) => post<Plan>(`/plans/${id}/revise`, { text }),
+  launchPlan: (id: string, steps: PlanStepEdit[]) => post<Plan>(`/plans/${id}/launch`, { steps }),
+  removePlan: (id: string) => call<{ ok: boolean }>(`/plans/${id}`, { method: "DELETE" }),
   tools: () => call<{ treehouse: boolean; noMistakes: boolean; gnhf: boolean; lavish: boolean }>("/tools"),
   archive: (id: string) => call<{ ok: boolean }>(`/missions/${id}`, { method: "DELETE" }),
   saveSettings: (s: Settings) => call<Settings>("/settings", { method: "PUT", body: JSON.stringify(s) }),

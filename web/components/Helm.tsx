@@ -10,12 +10,13 @@ type Props = {
   onTargets: (ids: string[]) => void;
   onMode: (m: Mode) => void;
   onSend: (instruction: string) => Promise<boolean>;
+  onPlan: (goal: string) => Promise<boolean>;
 };
 
 const MODES: Mode[] = ["scout", "builder", "engineer", "night"];
 
 /** The one place instructions are typed. `@name` picks repos; the same instruction goes to each as its own mission. */
-export default function Helm({ repos, targets, mode, onTargets, onMode, onSend }: Props) {
+export default function Helm({ repos, targets, mode, onTargets, onMode, onSend, onPlan }: Props) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [pick, setPick] = useState(0);
@@ -63,6 +64,15 @@ export default function Helm({ repos, targets, mode, onTargets, onMode, onSend }
     if (!instruction || targets.length === 0 || sending) return;
     setSending(true);
     const ok = await onSend(instruction);
+    setSending(false);
+    if (ok) setText("");
+  };
+
+  const plan = async () => {
+    const goal = text.trim();
+    if (!goal || sending) return;
+    setSending(true);
+    const ok = await onPlan(goal);
     setSending(false);
     if (ok) setText("");
   };
@@ -120,6 +130,15 @@ export default function Helm({ repos, targets, mode, onTargets, onMode, onSend }
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
           }}
         />
+        <button
+          className="btn"
+          style={{ padding: "10px 14px" }}
+          disabled={!text.trim() || sending}
+          onClick={plan}
+          title={targets.length > 0 ? "A planner reads the picked repos and writes a task for each. Nothing starts until you approve it." : "A planner reads your active repos and writes a task for each one the goal touches. Nothing starts until you approve it."}
+        >
+          Plan first
+        </button>
         <button className="btn primary" style={{ padding: "10px 18px" }} disabled={!ready || sending} onClick={send}>
           {sending ? "Sending…" : targets.length > 1 ? `Send to ${targets.length}` : "Send"}
         </button>
