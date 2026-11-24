@@ -104,6 +104,16 @@ public static partial class NoMistakes
         _ => step,
     };
 
+    static readonly string[] StepNames = { "intent", "rebase", "review", "test", "document", "lint", "push", "pr", "ci" };
+
+    /// <summary>The pipeline step a progress line such as "Tests: running" is about.</summary>
+    public static (string? Step, string Status) FromProgress(string text)
+    {
+        var at = text.LastIndexOf(": ", StringComparison.Ordinal);
+        if (at < 0) return (null, "");
+        return (StepNames.FirstOrDefault(s => Label(s) == text[..at]), text[(at + 2)..]);
+    }
+
     static ShipState Parse(ProcResult r)
     {
         var text = Clean(r.Stdout);
@@ -113,6 +123,7 @@ public static partial class NoMistakes
 
         var lines = text.Split('\n');
         string? table = null;
+        var columns = Array.Empty<string>();
         var inGate = false;
         foreach (var raw in lines)
         {
@@ -130,7 +141,7 @@ public static partial class NoMistakes
                 continue;
             }
             var head = TableHead().Match(trimmed);
-            if (head.Success) { table = head.Groups[1].Value; continue; }
+            if (head.Success) { table = head.Groups[1].Value; columns = head.Groups[2].Value.Split(','); continue; }
             if (table == "steps")
             {
                 var c = Text.Csv(trimmed);
@@ -141,7 +152,9 @@ public static partial class NoMistakes
             if (table == "findings")
             {
                 var c = Text.Csv(trimmed);
-                if (c.Count >= 5) state.Findings.Add(new ShipFinding { Id = c[0], Severity = c[1], File = c[2], Description = c[3], Action = c[4] });
+                // Read by column name: the order of this table is no-mistakes' to choose.
+                string Cell(string name) { var i = Array.IndexOf(columns, name); return i >= 0 && i < c.Count ? c[i] : ""; }
+                if (c.Count >= columns.Length && columns.Length > 0) state.Findings.Add(new ShipFinding { Id = Cell("id"), Severity = Cell("severity"), File = Cell("file"), Description = Cell("description"), Action = Cell("action") });
                 else table = null;
                 continue;
             }
@@ -173,7 +186,7 @@ public static partial class NoMistakes
     private static partial Regex Ansi();
     [GeneratedRegex(@"^\s+([a-z]+):\s+([a-z_]+)\s*$")]
     private static partial Regex ProgressLine();
-    [GeneratedRegex(@"^([a-z_]+)\[\d+\]\{[^}]*\}:$")]
+    [GeneratedRegex(@"^([a-z_]+)\[\d+\]\{([^}]*)\}:$")]
     private static partial Regex TableHead();
     [GeneratedRegex(@"https://github\.com/[\w.\-]+/[\w.\-]+/pull/\d+")]
     private static partial Regex PrUrl();

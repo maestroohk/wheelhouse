@@ -273,6 +273,17 @@ button.card-title:hover { color: var(--helm); }
 .gauge b { font-size: 15px; }
 .gauge.hot { border-color: var(--amber); background: var(--amber-wash); color: var(--amber); }
 
+.gauge.out { border-color: var(--stop); background: var(--stop-wash); color: var(--stop); }
+.gauge.out b { color: var(--stop); }
+.gauge.as-button { cursor: pointer; font-family: var(--mono); font-size: 12px; }
+.gauge.as-button:hover { border-color: var(--ink-2); }
+.prs { display: grid; gap: 1px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 5px; }
+.prs .pr { display: grid; gap: 4px; padding: 10px 12px; }
+.prs .pr + .pr { border-top: 1px solid var(--rule); }
+.pr-title { font-weight: 500; text-decoration: none; overflow-wrap: anywhere; }
+.pr-title:hover { color: var(--helm); text-decoration: underline; }
+.vessel .sub .warn { color: var(--amber); }
+
 /* ---------- shipping pipeline ---------- */
 .pipe { display: flex; gap: 3px; flex-wrap: wrap; }
 .pipe li { font: 500 10px var(--mono); letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 7px; border-radius: 3px; background: var(--well); color: var(--ink-3); }

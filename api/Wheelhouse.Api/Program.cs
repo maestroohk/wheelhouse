@@ -17,6 +17,7 @@ builder.Services.AddSingleton<Lavish>();
 builder.Services.AddSingleton<Planner>();
 builder.Services.AddSingleton<Playbooks>();
 builder.Services.AddSingleton<Backlog>();
+builder.Services.AddSingleton<Signals>();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
     .SetIsOriginAllowed(origin => Uri.TryCreate(origin, UriKind.Absolute, out var u) && u.IsLoopback)
     .AllowAnyHeader()
@@ -105,6 +106,9 @@ api.MapPost("/plans", async (CreatePlanRequest req, Planner planner, Cancellatio
 api.MapPost("/plans/{id}/revise", async (string id, RevisePlanRequest req, Planner planner, CancellationToken ct) => await planner.ReviseAsync(id, req.Text, ct));
 api.MapPost("/plans/{id}/launch", async (string id, LaunchPlanRequest req, Planner planner, CancellationToken ct) => await planner.LaunchAsync(id, req, ct));
 api.MapDelete("/plans/{id}", (string id, Planner planner) => { planner.Remove(id); return new { ok = true }; });
+
+api.MapGet("/quota", async (Signals signals, CancellationToken ct) => await signals.QuotaAsync(ct));
+api.MapGet("/prs", async (bool? force, Signals signals, CancellationToken ct) => await signals.PullRequestsAsync(force == true, ct));
 
 api.MapGet("/backlog", async (Backlog backlog, CancellationToken ct) => await backlog.ListAsync(ct));
 api.MapPost("/backlog", async (AddBacklogRequest req, Backlog backlog, CancellationToken ct) => await backlog.AddAsync(req, ct));

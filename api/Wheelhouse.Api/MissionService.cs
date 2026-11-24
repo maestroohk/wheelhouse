@@ -666,7 +666,17 @@ public sealed class MissionService : IHostedService
             var worktree = m.Worktree!;
             try
             {
-                var state = await step(worktree, text => { lock (m) m.Activity = text; Note(m, "ship", text); }, cts.Token);
+                var state = await step(worktree, text =>
+                {
+                    lock (m)
+                    {
+                        m.Activity = text;
+                        // Keep the strip of steps current while the pipeline runs, not only when it stops.
+                        var (name, status) = NoMistakes.FromProgress(text);
+                        if (name != null && m.Ship?.Steps.FirstOrDefault(x => x.Step == name) is { } live) live.Status = status;
+                    }
+                    Note(m, "ship", text);
+                }, cts.Token);
                 lock (m) m.Ship = state;
                 if (state.GateStep != null)
                 {

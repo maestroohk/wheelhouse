@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ago, api, statusLabel, type LogEntry, type Repo, type Settings, type Status } from "@/lib/api";
+import { ago, api, statusLabel, type LogEntry, type PullRequest, type PullRequests, type Repo, type Settings, type Status } from "@/lib/api";
 
 function Shell({ title, sub, onClose, children, foot }: { title: string; sub?: string; onClose: () => void; children: React.ReactNode; foot?: React.ReactNode }) {
   useEffect(() => {
@@ -77,6 +77,51 @@ export function Logbook({ repoId, onClose, onOpenMission, onTarget }: { repoId: 
         </>
       )}
       {!data && !error && <p className="faint">Reading the log…</p>}
+    </Shell>
+  );
+}
+
+function PrRow({ p }: { p: PullRequest }) {
+  return (
+    <li className="pr">
+      <a href={p.url} target="_blank" rel="noreferrer" className="pr-title">{p.title}</a>
+      <span className="meta">
+        <span>{p.repo}#{p.number}</span>
+        {p.branch && <span>{p.branch}</span>}
+        {p.draft && <span>draft</span>}
+      </span>
+      <span className="row" style={{ gap: 6 }}>
+        {p.checks !== "none" && <span className={`tag ${p.checks === "passing" ? "ok" : p.checks === "failing" ? "bad" : "run"}`}>{p.checks === "failing" ? `${p.failing} failing` : `checks ${p.checks}`}</span>}
+        {p.review && <span className={`tag ${p.review === "approved" ? "ok" : p.review === "changes requested" ? "wait" : ""}`}>{p.review}</span>}
+      </span>
+    </li>
+  );
+}
+
+/** Open pull requests: the ones needing something from the developer first. */
+export function PullRequestPanel({ data, onClose, onRefresh, refreshing }: { data: PullRequests; onClose: () => void; onRefresh: () => void; refreshing: boolean }) {
+  const attention = data.items.filter((p) => p.mine && (p.checks === "failing" || p.review === "changes requested"));
+  const review = data.items.filter((p) => !p.mine);
+  const rest = data.items.filter((p) => p.mine && !attention.includes(p));
+  const group = (title: string, items: PullRequest[]) =>
+    items.length > 0 && (
+      <div className="section">
+        <span className="cap">{title} · {items.length}</span>
+        <ul className="prs">{items.map((p) => <PrRow key={p.url} p={p} />)}</ul>
+      </div>
+    );
+  return (
+    <Shell
+      title="Pull requests"
+      sub={data.known ? `Read from GitHub ${ago(data.at)}` : undefined}
+      onClose={onClose}
+      foot={<button className="btn" onClick={onRefresh} disabled={refreshing}>{refreshing ? "Reading…" : "Read again"}</button>}
+    >
+      {!data.known && <p className="muted">{data.note}</p>}
+      {data.known && data.items.length === 0 && <p className="muted">You have no open pull requests and nothing is waiting on your review.</p>}
+      {group("Needs you", attention)}
+      {group("Waiting on your review", review)}
+      {group("Open", rest)}
     </Shell>
   );
 }

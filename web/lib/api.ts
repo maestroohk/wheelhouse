@@ -121,6 +121,10 @@ export type Plan = {
 };
 export type PlanStepEdit = { repoId: string; include: boolean; mode?: Mode; spec?: string };
 
+export type Quota = { known: boolean; plan: string | null; percentLeft: number; limitedBy: string | null; resetsAt: string | null; runwaySeconds: number | null; windows: { label: string; percentLeft: number; resetsAt: string | null }[]; note: string | null };
+export type PullRequest = { repo: string; repoId: string | null; number: number; title: string; url: string; branch: string; draft: boolean; checks: "passing" | "failing" | "running" | "none"; failing: number; review: string; mine: boolean };
+export type PullRequests = { known: boolean; items: PullRequest[]; note: string | null; at: string };
+
 export type BacklogTask = { id: string; title: string; state: "queued" | "in_flight" | "held" | "done"; kind: string; repo: string; body: string; created: string; closed: string };
 
 export type Playbook = { id: string; name: string; text: string; mode: Mode; builtIn: boolean };
@@ -171,6 +175,8 @@ export const api = {
   revisePlan: (id: string, text: string) => post<Plan>(`/plans/${id}/revise`, { text }),
   launchPlan: (id: string, steps: PlanStepEdit[]) => post<Plan>(`/plans/${id}/launch`, { steps }),
   removePlan: (id: string) => call<{ ok: boolean }>(`/plans/${id}`, { method: "DELETE" }),
+  quota: () => call<Quota>("/quota"),
+  prs: (force = false) => call<PullRequests>(`/prs${force ? "?force=true" : ""}`),
   addBacklog: (repoIds: string[], text: string, kind: Mode) => post<BacklogTask[]>("/backlog", { repoIds, text, kind }),
   startBacklog: (id: string) => post<Mission>(`/backlog/${id}/start`, {}),
   doneBacklog: (id: string) => post<BacklogTask[]>(`/backlog/${id}/done`),

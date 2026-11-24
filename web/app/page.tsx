@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { API, api, isActive, money, needsYou, type BacklogTask, type Mission, type Mode, type Plan, type Playbook, type Repo, type Settings } from "@/lib/api";
+import { API, api, isActive, money, needsYou, type BacklogTask, type Mission, type Mode, type Plan, type Playbook, type PullRequests, type Quota, type Repo, type Settings } from "@/lib/api";
 import BacklogPanel from "@/components/BacklogPanel";
 import Chart from "@/components/Chart";
 import Fleet from "@/components/Fleet";
@@ -9,7 +9,7 @@ import Helm from "@/components/Helm";
 import MissionCard from "@/components/MissionCard";
 import MissionDrawer from "@/components/MissionDrawer";
 import PlanCard from "@/components/PlanCard";
-import { Logbook, SettingsPanel } from "@/components/Panels";
+import { Logbook, PullRequestPanel, SettingsPanel } from "@/components/Panels";
 
 const remember = {
   get<T>(key: string, fallback: T): T {
@@ -31,6 +31,10 @@ export default function Bridge() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [playbooks, setPlaybooks] = useState<Playbook[]>([]);
   const [backlog, setBacklog] = useState<BacklogTask[]>([]);
+  const [quota, setQuota] = useState<Quota | null>(null);
+  const [pulls, setPulls] = useState<PullRequests | null>(null);
+  const [showPulls, setShowPulls] = useState(false);
+  const [readingPulls, setReadingPulls] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [offline, setOffline] = useState<string | null>(null);
@@ -101,6 +105,17 @@ export default function Bridge() {
     return () => es.close();
   }, [load, upsert, upsertPlan]);
 
+  // Outside facts, read on their own slower clock: the agent quota and the open pull requests.
+  useEffect(() => {
+    const readQuota = () => api.quota().then(setQuota, () => {});
+    const readPulls = () => api.prs().then(setPulls, () => {});
+    readQuota();
+    readPulls();
+    const a = setInterval(readQuota, 120_000);
+    const b = setInterval(readPulls, 300_000);
+    return () => { clearInterval(a); clearInterval(b); };
+  }, []);
+
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
@@ -166,6 +181,22 @@ export default function Bridge() {
     setBusy(null);
   };
 
+  const prByRepo = useMemo(() => {
+    const counts: Record<string, { open: number; failing: number }> = {};
+    for (const p of pulls?.items ?? []) {
+      if (!p.repoId || !p.mine) continue;
+      const c = (counts[p.repoId] ??= { open: 0, failing: 0 });
+      c.open++;
+      if (p.checks === "failing") c.failing++;
+    }
+    return counts;
+  }, [pulls]);
+  const prTrouble = (pulls?.items ?? []).filter((p) => (p.mine && (p.checks === "failing" || p.review === "changes requested")) || !p.mine).length;
+  const runway = quota?.runwaySeconds != null && quota.runwaySeconds < 3 * 3600 ? `about ${quota.runwaySeconds < 5400 ? Math.max(1, Math.round(quota.runwaySeconds / 60)) + " min" : Math.round(quota.runwaySeconds / 3600) + " h"} at this pace` : null;
+  const quotaTitle = quota?.known
+    ? [`Limited by the ${quota.limitedBy} window`, quota.resetsAt ? `resets ${new Date(quota.resetsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : null, runway, ...quota.windows.map((w) => `${w.label}: ${w.percentLeft}% left`)].filter(Boolean).join(" · ")
+    : quota?.note ?? "";
+
   const later = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const t of backlog) if (t.state === "queued" && t.repo) counts[t.repo] = (counts[t.repo] ?? 0) + 1;
@@ -219,6 +250,16 @@ export default function Bridge() {
           <span className="gauge"><b className="num">{underway.length}</b> working</span>
           <span className={`gauge${waiting.length ? " hot" : ""}`}><b className="num">{waiting.length}</b> need you</span>
           <span className="gauge"><b className="num">{money(costToday)}</b> today</span>
+          {quota?.known && (
+            <span className={`gauge${quota.percentLeft < 10 ? " out" : quota.percentLeft < 25 ? " hot" : ""}`} title={quotaTitle}>
+              <b className="num">{quota.percentLeft}%</b> agent quota left{runway && quota.percentLeft < 25 ? ` · ${runway}` : ""}
+            </span>
+          )}
+          {pulls?.known && (
+            <button className={`gauge as-button${prTrouble ? " hot" : ""}`} onClick={() => setShowPulls(true)} title="Your open pull requests, with CI and review state">
+              <b className="num">{pulls.items.filter((p) => p.mine).length}</b> PRs{prTrouble ? ` · ${prTrouble} need you` : ""}
+            </button>
+          )}
           <button className="btn quiet" onClick={() => setShowSettings(true)} disabled={!settings}>Settings</button>
         </div>
       </header>
@@ -230,6 +271,7 @@ export default function Bridge() {
           repos={repos}
           missions={missions}
           later={later}
+          prs={prByRepo}
           targets={targets}
           now={now}
           onToggle={(id) => setTargets((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id]))}
@@ -325,6 +367,14 @@ export default function Bridge() {
           onClose={() => setLogbookId(null)}
           onOpenMission={(id) => { setLogbookId(null); setOpenId(id); }}
           onTarget={() => { setTargets((t) => (t.includes(logbookId) ? t : [...t, logbookId])); setLogbookId(null); document.getElementById("helm-input")?.focus(); }}
+        />
+      )}
+      {showPulls && pulls && (
+        <PullRequestPanel
+          data={pulls}
+          onClose={() => setShowPulls(false)}
+          refreshing={readingPulls}
+          onRefresh={() => { setReadingPulls(true); api.prs(true).then(setPulls, (e: Error) => setToast(e.message)).finally(() => setReadingPulls(false)); }}
         />
       )}
       {showSettings && settings && <SettingsPanel settings={settings} onClose={() => setShowSettings(false)} onSaved={(s) => { setSettings(s); refresh(); }} />}

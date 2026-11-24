@@ -143,6 +143,8 @@ async function home() {
   const ready = (s.plans ?? []).filter((p) => p.status === "ready");
   const noted = (s.backlog ?? []).filter((t) => t.state === "queued");
   if (noted.length) out.push(`later: ${noted.length} tasks noted for later (run \`wh backlog\`)`);
+  const quota = await fetch(BASE + "/quota").then((r) => r.json()).catch(() => null);
+  if (quota?.known) out.push(`agent_quota: ${quota.percentLeft}% left, limited by the ${quota.limitedBy} window${quota.percentLeft < 25 ? " (low: avoid starting several missions at once)" : ""}`);
   if (ready.length) table("plans_ready", ready.map((p) => ({ id: p.id, goal: clip(p.goal, 70), tasks: p.steps.length })), ["id", "goal", "tasks"]);
   help([
     "Run `wh repos` for repo ids",

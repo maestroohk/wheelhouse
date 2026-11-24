@@ -7,6 +7,7 @@ type Props = {
   repos: Repo[];
   missions: Mission[];
   later: Record<string, number>;
+  prs: Record<string, { open: number; failing: number }>;
   targets: string[];
   now: number;
   onToggle: (id: string) => void;
@@ -18,7 +19,7 @@ type Props = {
 
 const DAY = 86_400_000;
 
-export default function Fleet({ repos, missions, later, targets, now, onToggle, onPin, onLogbook, onRefresh, refreshing }: Props) {
+export default function Fleet({ repos, missions, later, prs, targets, now, onToggle, onPin, onLogbook, onRefresh, refreshing }: Props) {
   const [query, setQuery] = useState("");
   const [showQuiet, setShowQuiet] = useState(false);
 
@@ -69,6 +70,11 @@ export default function Fleet({ repos, missions, later, targets, now, onToggle, 
         <span className="sub">
           <span className="clip mono">{r.branch ?? "no branch"}</span>
           {r.dirty > 0 && <span className="warn nowrap">{r.dirty} changed</span>}
+          {prs[r.id] && (
+            <span className={`nowrap${prs[r.id].failing ? " warn" : ""}`} title={prs[r.id].failing ? "Open pull requests, some with failing checks" : "Open pull requests"}>
+              {prs[r.id].open} PR{prs[r.id].open === 1 ? "" : "s"}{prs[r.id].failing ? " ✗" : ""}
+            </span>
+          )}
           {later[r.id] > 0 && <span className="nowrap" title="Noted for later">{later[r.id]} later</span>}
           {r.ahead > 0 && <span className="nowrap">↑{r.ahead}</span>}
           {r.behind > 0 && <span className="nowrap">↓{r.behind}</span>}
