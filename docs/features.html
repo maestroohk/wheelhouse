@@ -1,0 +1,181 @@
+<title>Wheelhouse Feature Plan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,500..800&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a chart-room briefing. One column of plain sections, a schematic of the screen up top, feature tables set like a ship's log with a status lamp per line. */
+:root {
+  --chart: #e8eef4; --sheet: #f7fafc; --ink: #10233a; --ink-2: #44566b; --ink-3: #7688a0;
+  --rule: #c9d5e2; --helm: #1d4fd0; --helm-wash: #dde7fb;
+  --amber: #a8650a; --amber-wash: #f8ebd2; --go: #0c7a55; --go-wash: #d9efe5; --stop: #b3262e; --later: #7688a0;
+  --display: "Archivo", "Segoe UI", system-ui, sans-serif;
+  --body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --chart: #0b1522; --sheet: #111e2e; --ink: #dfe8f2; --ink-2: #a3b3c6; --ink-3: #6f8299;
+  --rule: #223449; --helm: #7ea6ff; --helm-wash: #17294a;
+  --amber: #e7b057; --amber-wash: #33270f; --go: #5fcba2; --go-wash: #12301f; --stop: #ff8086; --later: #6f8299; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --chart: #0b1522; --sheet: #111e2e; --ink: #dfe8f2; --ink-2: #a3b3c6; --ink-3: #6f8299;
+  --rule: #223449; --helm: #7ea6ff; --helm-wash: #17294a;
+  --amber: #e7b057; --amber-wash: #33270f; --go: #5fcba2; --go-wash: #12301f; --stop: #ff8086; --later: #6f8299; color-scheme: dark }
+* { box-sizing: border-box; }
+body { background: var(--chart); color: var(--ink); font: 16px/1.6 var(--body); padding-block: 40px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+main { max-width: 900px; margin: 0 auto; display: grid; gap: 44px; }
+h1, h2, h3 { font-family: var(--display); font-stretch: 112%; margin: 0; line-height: 1.12; text-wrap: balance; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2rem, 5vw, 3rem); font-weight: 800; }
+h2 { font-size: 1.35rem; font-weight: 700; }
+h3 { font-size: 1rem; font-weight: 700; }
+p { margin: 0; max-width: 66ch; color: var(--ink-2); }
+.eyebrow { font: 500 12px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
+header { display: grid; gap: 14px; }
+header p { font-size: 1.1rem; color: var(--ink); }
+section { display: grid; gap: 16px; min-width: 0; }
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0; border-top: 2px solid var(--ink); }
+.rules div { padding: 14px 16px 14px 0; border-bottom: 1px solid var(--rule); display: grid; gap: 4px; align-content: start; }
+.rules p { font-size: 0.93rem; }
+
+/* schematic of the screen */
+.bridge { background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px; display: grid; grid-template-columns: 150px minmax(0, 1fr) 200px; font-size: 12px; overflow: hidden; }
+.bridge > div { padding: 12px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.bridge > div + div { border-left: 1px solid var(--rule); }
+.bridge .cap { font: 500 10.5px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.vessel { display: flex; gap: 7px; align-items: center; font-family: var(--mono); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lamp { width: 8px; height: 8px; border-radius: 50%; background: var(--later); flex: none; }
+.lamp.run { background: var(--helm); } .lamp.wait { background: var(--amber); } .lamp.ok { background: var(--go); }
+.card { border: 1px solid var(--rule); border-radius: 3px; padding: 9px 10px; display: grid; gap: 3px; background: var(--chart); }
+.card b { font-family: var(--display); font-size: 12.5px; }
+.card span { color: var(--ink-2); }
+.card.ask { background: var(--amber-wash); border-color: transparent; }
+.btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 3px; }
+.btns i { font-style: normal; border: 1px solid var(--ink-3); border-radius: 3px; padding: 1px 7px; font-size: 11px; }
+.helmbar { grid-column: 1 / -1; border-top: 1px solid var(--rule); border-left: 0 !important; display: flex !important; gap: 8px; align-items: center; background: var(--helm-wash); font-family: var(--mono); font-size: 11.5px; flex-wrap: wrap; }
+.helmbar em { font-style: normal; color: var(--helm); }
+@media (max-width: 680px) { .bridge { grid-template-columns: 1fr; } .bridge > div + div { border-left: 0; border-top: 1px solid var(--rule); } }
+
+.log { border-top: 2px solid var(--ink); }
+.log .line { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 4px 16px; padding: 12px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+.log .line p { font-size: 0.95rem; grid-column: 2; }
+.tag { font: 500 10.5px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 6px; border-radius: 3px; justify-self: start; white-space: nowrap; }
+.tag.now { background: var(--go-wash); color: var(--go); } .tag.next { background: var(--helm-wash); color: var(--helm); } .tag.later { border: 1px solid var(--rule); color: var(--later); }
+.borrow { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; min-width: 560px; }
+th { text-align: left; font: 500 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); padding: 8px 12px 8px 0; border-bottom: 2px solid var(--ink); }
+td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--rule); vertical-align: top; color: var(--ink-2); }
+td:first-child { font-family: var(--mono); font-size: 0.85rem; color: var(--ink); white-space: nowrap; }
+code { font-family: var(--mono); font-size: 0.86em; }
+.who { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 20px; }
+.who div { display: grid; gap: 6px; align-content: start; border-left: 3px solid var(--helm); padding-left: 14px; }
+.who p { font-size: 0.93rem; }
+</style>
+
+<main>
+<header>
+  <span class="eyebrow">Feature plan · v0.1 in build · .NET 10 + Next.js</span>
+  <h1>Wheelhouse</h1>
+  <p>One room to steer agents across every repo you own. You give short instructions; agents work in parallel, each in its own isolated copy; you get back a card you can read in ten seconds and a decision you can make with one click.</p>
+  <p style="font-size:1rem;color:var(--ink-2)">The problem it solves: with ten projects on the go you lose track of which repo was mid-change, which agent was waiting on you, and what each one actually did. Long markdown reports make that worse. Wheelhouse keeps the state of every project on one screen and never makes a wall of text the default.</p>
+</header>
+
+<section>
+  <span class="eyebrow">The screen</span>
+  <div class="bridge" role="img" aria-label="Schematic of the Wheelhouse screen: fleet of repos on the left, mission cards in the middle, decisions waiting on you on the right, instruction bar along the bottom">
+    <div>
+      <span class="cap">Fleet · 14 repos</span>
+      <span class="vessel"><i class="lamp run"></i>repo-pulse</span>
+      <span class="vessel"><i class="lamp wait"></i>tideline-web</span>
+      <span class="vessel"><i class="lamp run"></i>FootballIntel…</span>
+      <span class="vessel"><i class="lamp ok"></i>repo-runner</span>
+      <span class="vessel"><i class="lamp"></i>FluxGet</span>
+      <span class="vessel"><i class="lamp"></i>CyberEmblem</span>
+    </div>
+    <div>
+      <span class="cap">Missions</span>
+      <div class="card"><b>repo-pulse · Add CSV export to timesheet</b><span>Editing TimesheetView.tsx · step 14 · 3m 20s</span></div>
+      <div class="card"><b>repo-runner · Ready to review</b><span>Retry now backs off 3 times. 4 files, +86 −12. Build and 41 tests pass.</span><div class="btns"><i>View diff</i><i>Keep</i><i>Discard</i></div></div>
+      <div class="card"><b>FootballIntelligence · Scouting</b><span>Searching for fixture ingestion · step 6</span></div>
+    </div>
+    <div>
+      <span class="cap">Needs you · 1</span>
+      <div class="card ask"><b>tideline-web</b><span>Two date libraries are in use. Which one stays?</span><div class="btns"><i>date-fns</i><i>dayjs</i></div></div>
+    </div>
+    <div class="helmbar"><em>@repo-pulse @tideline-web</em> add a dark mode toggle to the header <span style="margin-left:auto;color:var(--ink-3)">Ship · Builder · Enter</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Four rules the design follows</h2>
+  <div class="rules">
+    <div><h3>Cards, not documents</h3><p>Every mission ends in a fixed-shape brief: one headline, up to four bullets, what was verified, what is risky. The full transcript exists but is never what you see first.</p></div>
+    <div><h3>Only decisions interrupt you</h3><p>An agent that needs a choice stops and asks with buttons. Everything else stays quiet until it is done.</p></div>
+    <div><h3>Your working copy is never touched</h3><p>Changes happen on a <code>wheelhouse/*</code> branch in a separate folder. Nothing is pushed. You keep or discard.</p></div>
+    <div><h3>Every repo, one glance</h3><p>Each project shows branch, unsaved work, running agents and what is waiting on you, so switching between ten projects costs nothing.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Features</h2>
+  <div class="log">
+    <div class="line"><span class="tag now">Building</span><h3>Fleet</h3><p>Finds every git repo under your projects folder. Pin the ones you are active on. One line each: branch, uncommitted files, ahead/behind, agents running, decisions waiting.</p></div>
+    <div class="line"><span class="tag now">Building</span><h3>The helm</h3><p>One instruction box, always on screen. Type <code>@repo</code> to target one project or several; the same instruction fans out to each as its own mission.</p></div>
+    <div class="line"><span class="tag now">Building</span><h3>Two mission shapes</h3><p><b>Scout</b> reads and reports, changing nothing. <b>Ship</b> makes the change on an isolated branch.</p></div>
+    <div class="line"><span class="tag now">Building</span><h3>Three autonomy levels</h3><p><b>Scout</b> can only read. <b>Builder</b> can edit files. <b>Engineer</b> can also run build, test and package commands inside the isolated folder.</p></div>
+    <div class="line"><span class="tag now">Building</span><h3>Live status line</h3><p>What each agent is doing right now in a few words, with step count, time and cost. No scrolling logs.</p></div>
+    <div class="line"><span class="tag now">Building</span><h3>Briefs</h3><p>The agent is required to report in a fixed structure. Wheelhouse renders it as a card and adds facts it measured itself: files changed, lines added and removed, check results.</p></div>
+    <div class="line"><span class="tag now">Building</span><h3>Needs-you inbox</h3><p>Questions with option buttons, missions ready for review, and failures. Answering a question resumes the same agent with its memory intact.</p></div>
+    <div class="line"><span class="tag now">Building</span><h3>Review, keep, discard</h3><p>Per-file diff in the app. Keep commits as you on the mission branch; Discard deletes the branch and folder. Send a follow-up to have the agent revise.</p></div>
+    <div class="line"><span class="tag now">Building</span><h3>Checks</h3><p>After a Ship mission, Wheelhouse runs the repo's own build and test commands (found from <code>.sln</code>, <code>.csproj</code>, <code>package.json</code>) and puts pass or fail on the card.</p></div>
+    <div class="line"><span class="tag now">Building</span><h3>Taking in outside work</h3><p>Work another agent did in its own worktree can be handed to Wheelhouse. It gets the same checks, card, diff review and keep or discard as a mission started here.</p></div>
+    <div class="line"><span class="tag now">Building</span><h3>Logbook</h3><p>Per repo: the last things done there, by you and by agents. Answers "where was I?" when you return to a project after a week.</p></div>
+    <div class="line"><span class="tag now">Building</span><h3>Limits</h3><p>Cap on agents running at once, a time limit per mission, cancel at any moment, cost per mission and per day.</p></div>
+    <div class="line"><span class="tag next">Next</span><h3>Playbooks</h3><p>Saved instructions with blanks: "add tests for…", "upgrade packages", "review this branch". Shareable as files in the repo so a team gets the same ones.</p></div>
+    <div class="line"><span class="tag next">Next</span><h3>First mate</h3><p>Give one goal that spans projects ("add health endpoints everywhere"). A planning agent splits it into a mission per repo; you approve the plan, then it runs.</p></div>
+    <div class="line"><span class="tag next">Next</span><h3>Fix-until-green</h3><p>When checks fail, the agent gets the failure and tries again, up to a limit you set.</p></div>
+    <div class="line"><span class="tag next">Next</span><h3>Push and pull request</h3><p>From a kept mission: push the branch and open a PR with the brief as its description. Always on your click.</p></div>
+    <div class="line"><span class="tag next">Next</span><h3><code>wh</code> command line</h3><p>A small CLI so agents and scripts can start missions and read briefs in compact output. This is how any agent, including this one, works through Wheelhouse.</p></div>
+    <div class="line"><span class="tag next">Next</span><h3>RepoPulse link</h3><p>Turn a deep-scan finding or a to-do into a mission; mission time and outcomes flow back into your standup and timesheet.</p></div>
+    <div class="line"><span class="tag later">Later</span><h3>Night watch</h3><p>Queue work to run while you are away, with a spending cap, one commit per step, and a morning summary.</p></div>
+    <div class="line"><span class="tag later">Later</span><h3>Other agents</h3><p>The agent runner is a plug-in point. Claude Code first; Codex, Gemini CLI and local models can be added without touching the rest.</p></div>
+    <div class="line"><span class="tag later">Later</span><h3>Explain mode</h3><p>A "walk me through it" button on any brief: the agent explains the change at the level you choose.</p></div>
+    <div class="line"><span class="tag later">Later</span><h3>Team rules</h3><p>Per-repo policy file: which autonomy is allowed, which paths are off limits, which checks must pass before Keep is enabled.</p></div>
+    <div class="line"><span class="tag later">Later</span><h3>Tray and phone alerts</h3><p>A Windows notification when something needs you, so the tab can stay closed.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Who it is for</h2>
+  <div class="who">
+    <div><h3>Senior</h3><p>Run ten streams at once and spend your time on review and decisions. Policies and checks keep agents inside the lines you set.</p></div>
+    <div><h3>Mid-level</h3><p>Hand off the routine work (tests, upgrades, small fixes) and keep the interesting change for yourself, without losing track of either.</p></div>
+    <div><h3>Junior</h3><p>Safe by default: nothing touches your working copy and nothing is pushed. Scout missions and Explain mode turn any repo into something you can ask questions of.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Built on existing tools, not rewritten</h2>
+  <p>Wheelhouse is the room and the cards. The machinery underneath comes from the kunchenguid tools wherever one exists. Tools marked installed are already on this machine.</p>
+  <div class="borrow">
+  <table>
+    <tr><th>Tool</th><th>What Wheelhouse uses it for</th><th>State</th></tr>
+    <tr><td>treehouse</td><td>Every mission's isolated folder is leased from its pool, with packages already restored, and returned when you keep or discard. It also ends processes that hold files open on Windows.</td><td><span class="tag now">In use</span> installed</td></tr>
+    <tr><td>no-mistakes</td><td>The Ship step: <code>no-mistakes axi run</code> reviews, tests, pushes, opens the pull request and watches CI. It stops at decision points, which become Needs-you cards.</td><td><span class="tag next">Next</span> installed</td></tr>
+    <tr><td>gnhf</td><td>Night watch: unattended runs with an iteration and token limit, one commit per step.</td><td><span class="tag next">Next</span> installed</td></tr>
+    <tr><td>firstmate</td><td>Its crew instructions and task contracts (scout and ship) for the First mate planner that splits one goal across repos.</td><td><span class="tag next">Next</span> installed</td></tr>
+    <tr><td>tasks-axi</td><td>A backlog per repo with pluggable storage, so queued work survives outside Wheelhouse.</td><td><span class="tag next">Next</span></td></tr>
+    <tr><td>gh-axi</td><td>Pull request and CI state on each fleet line and mission card.</td><td><span class="tag next">Next</span></td></tr>
+    <tr><td>quota-axi</td><td>A gauge in the top bar for how much of your subscription window is left before you launch ten agents.</td><td><span class="tag next">Next</span></td></tr>
+    <tr><td>lavish-axi</td><td>Reviewing an agent's plan or design as an annotated page instead of text.</td><td><span class="tag later">Later</span> installed</td></tr>
+    <tr><td>acpx, acp-mock</td><td>Other agents (Codex, Gemini, Copilot) through one protocol, and tests that spend no tokens.</td><td><span class="tag later">Later</span></td></tr>
+    <tr><td>axi</td><td>The design rules for the <code>wh</code> command line that agents use to drive Wheelhouse.</td><td><span class="tag later">Later</span></td></tr>
+    <tr><td>vision, backpass, kun</td><td>Ready-made playbooks: draft a repo's vision from its history, tune its AGENTS.md, principal-engineer review.</td><td><span class="tag later">Later</span></td></tr>
+    <tr><td>chrome-devtools-axi</td><td>Letting an Engineer agent check a UI change in a real browser before reporting.</td><td><span class="tag later">Later</span></td></tr>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2>How it is built</h2>
+  <p>A .NET 10 API on your machine owns repos, missions, worktrees and checks, and streams events to a Next.js UI. Agents are started through the Claude Code CLI you are already signed in to. Data lives in <code>%USERPROFILE%\.wheelhouse</code>. Nothing leaves the machine except what the agent itself sends to its model.</p>
+</section>
+</main>
