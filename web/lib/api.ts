@@ -84,6 +84,7 @@ export type Mission = {
   error: string | null;
   note: string | null;
   ship: ShipState | null;
+  fixRounds: number;
 };
 
 export type Settings = {
@@ -94,6 +95,7 @@ export type Settings = {
   missionMinutes: number;
   runChecks: boolean;
   useTreehouse: boolean;
+  fixAttempts: number;
   nightIterations: number;
   nightHours: number;
   nightAgent: string;

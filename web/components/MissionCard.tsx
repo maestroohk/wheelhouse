@@ -180,6 +180,7 @@ export default function MissionCard({ m, now, busy, onOpen, onReply, onCancel, o
           )}
           <span className="grow" />
           <span className="meta num">
+            {m.fixRounds > 0 && <span title="Times a failed check went back to the agent automatically">auto-fix ×{m.fixRounds}</span>}
             {m.activeSeconds > 0 && <span>{duration(m.activeSeconds)}</span>}
             {m.costUsd > 0 && <span>{money(m.costUsd)}</span>}
           </span>

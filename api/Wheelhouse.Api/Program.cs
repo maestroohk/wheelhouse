@@ -114,6 +114,7 @@ api.MapPut("/settings", (Settings incoming, SettingsStore settings, RepoRegistry
         s.MissionMinutes = incoming.MissionMinutes;
         s.RunChecks = incoming.RunChecks;
         s.UseTreehouse = incoming.UseTreehouse;
+        s.FixAttempts = Math.Clamp(incoming.FixAttempts, 0, 5);
         s.NightIterations = Math.Clamp(incoming.NightIterations, 1, 200);
         s.NightHours = Math.Clamp(incoming.NightHours, 1, 24);
         s.NightAgent = string.IsNullOrWhiteSpace(incoming.NightAgent) ? "claude" : incoming.NightAgent.Trim();

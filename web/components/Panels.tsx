@@ -153,6 +153,11 @@ export function SettingsPanel({ settings, onClose, onSaved }: { settings: Settin
           <input id="set-checks" type="checkbox" checked={draft.runChecks} onChange={(e) => set("runChecks", e.target.checked)} />
           <span>Run build and tests after an agent changes files</span>
         </label>
+        <div className="field">
+          <label htmlFor="set-fix">When checks fail, send it back to the agent this many times</label>
+          <input id="set-fix" type="number" min={0} max={5} style={{ width: 110 }} value={draft.fixAttempts} onChange={(e) => set("fixAttempts", Number(e.target.value))} />
+          <span className="hint">The agent gets the failing output and tries again before you are asked to look. 0 turns this off.</span>
+        </div>
         <label className="row" htmlFor="set-treehouse">
           <input id="set-treehouse" type="checkbox" checked={draft.useTreehouse} onChange={(e) => set("useTreehouse", e.target.checked)} />
           <span>Get mission folders from treehouse when it is installed (they arrive with packages restored)</span>

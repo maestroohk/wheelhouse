@@ -106,6 +106,8 @@ public sealed class Mission
     public string? Error { get; set; }
     public string? Note { get; set; }
     public ShipState? Ship { get; set; }
+    /// <summary>How many times Wheelhouse has sent failing checks back to the agent on its own.</summary>
+    public int FixRounds { get; set; }
     public string? PageUrl { get; set; }
 }
 
@@ -124,6 +126,8 @@ public sealed class Settings
     public int MissionMinutes { get; set; } = 30;
     public bool RunChecks { get; set; } = true;
     public bool UseTreehouse { get; set; } = true;
+    /// <summary>How many times failing checks go back to the agent before the mission is put in front of the developer.</summary>
+    public int FixAttempts { get; set; } = 2;
     public int NightIterations { get; set; } = 8;
     public int NightHours { get; set; } = 8;
     /// <summary>The agent gnhf drives: claude, codex, copilot and so on, or acp:&lt;target or command&gt;.</summary>

@@ -62,6 +62,11 @@ public sealed class ScriptedRunner : IAgentRunner
         {
             await Step("tool", "Editing src/Calc/Calculator.cs");
             var text = File.ReadAllText(file);
+            if (req.ResumeSessionId != null && text.Contains("=> a * b\n"))
+            {
+                text = text.Replace("=> a * b\n", "=> a * b;\n");
+                File.WriteAllText(file, text);
+            }
             var broken = req.Prompt.Contains("break", StringComparison.OrdinalIgnoreCase);
             var body = broken
                 ? "    public static int Multiply(int a, int b) => a * b\n"

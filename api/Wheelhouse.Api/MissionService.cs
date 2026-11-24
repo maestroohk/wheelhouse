@@ -410,6 +410,7 @@ public sealed class MissionService : IHostedService
             }
 
             await CheckAndOfferAsync(m, ct);
+            QueueFixIfNeeded(m);
         }
         catch (OperationCanceledException)
         {
@@ -428,9 +429,9 @@ public sealed class MissionService : IHostedService
             cts.Dispose();
             lock (m)
             {
-                m.Activity = "";
+                m.Activity = m.Status == MissionStatus.Queued ? "Waiting for a free slot" : "";
                 m.TurnStartedAt = null;
-                m.FinishedAt = DateTimeOffset.Now;
+                m.FinishedAt = m.Status == MissionStatus.Queued ? null : DateTimeOffset.Now;
                 m.ActiveSeconds += sw.Elapsed.TotalSeconds;
             }
             Note(m, "status", m.Status);
@@ -438,6 +439,28 @@ public sealed class MissionService : IHostedService
             repos.Invalidate();
             Pump();
         }
+    }
+
+    /// <summary>
+    /// Fix until green: a failed check goes back to the agent with the failure output, without waiting for the
+    /// developer, up to the number of attempts in Settings. After that the mission is shown as it is.
+    /// </summary>
+    private void QueueFixIfNeeded(Mission m)
+    {
+        var limit = settings.Get().FixAttempts;
+        var failed = m.Checks.FirstOrDefault(c => c.Status == "failed");
+        if (failed == null || m.Status != MissionStatus.Review || m.FixRounds >= limit) return;
+        var prompt =
+            $"Wheelhouse ran this repository's own checks on your change and \"{failed.Name}\" failed. Fix the cause in your change; do not weaken or remove the check or the tests.\n\n" +
+            $"Command: {failed.Command}\n\nThe end of its output:\n{failed.Tail}";
+        lock (m)
+        {
+            m.FixRounds++;
+            m.Turns.Add(new Turn("you", $"Automatic: {failed.Name} failed, so it went back to the agent (attempt {m.FixRounds} of {limit}).", DateTimeOffset.Now));
+            m.PendingPrompt = prompt;
+            m.Status = MissionStatus.Queued;
+        }
+        Note(m, "status", $"{failed.Name} failed. Sent back to the agent, attempt {m.FixRounds} of {limit}");
     }
 
     /// <summary>Runs the repo's own checks against the mission's folder, then puts the mission up for review.</summary>
