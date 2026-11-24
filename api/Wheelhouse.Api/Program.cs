@@ -44,10 +44,10 @@ api.MapGet("/tools", async (CancellationToken ct) => new { treehouse = await Tre
 api.MapGet("/state", async (RepoRegistry repos, MissionService missions, SettingsStore settings, Planner planner, Playbooks playbooks, CancellationToken ct) => new
 {
     repos = await repos.GetAsync(false, ct),
-    missions = missions.All(),
+    missions = missions.Snapshot(),
     settings = settings.Get(),
     costToday = missions.CostToday(),
-    plans = planner.All(),
+    plans = planner.Snapshot(),
     playbooks = playbooks.All(),
 });
 
@@ -82,7 +82,7 @@ api.MapPost("/missions", async (CreateMissionRequest req, MissionService mission
 api.MapPost("/missions/adopt", async (AdoptRequest req, MissionService missions, CancellationToken ct) => await missions.AdoptAsync(req, ct));
 api.MapPost("/missions/{id}/checks", (string id, MissionService missions) => missions.Recheck(id));
 
-api.MapGet("/missions/{id}", (string id, MissionService missions) => new { mission = missions.Get(id), events = missions.Events(id) });
+api.MapGet("/missions/{id}", (string id, MissionService missions) => new { mission = MissionService.Snapshot(missions.Get(id)), events = missions.Events(id) });
 
 api.MapGet("/missions/{id}/diff", async (string id, MissionService missions, CancellationToken ct) =>
 {

@@ -101,6 +101,8 @@ public sealed partial class Planner
 
     public List<Plan> All() => plans.Values.OrderByDescending(p => p.CreatedAt).ToList();
 
+    public List<JsonElement> Snapshot() => All().Select(p => { lock (p) return JsonSerializer.SerializeToElement(p, Json.Wire); }).ToList();
+
     Plan Get(string id) => plans.TryGetValue(id, out var p) ? p : throw new WheelhouseException("That plan doesn't exist.");
 
     void Save(Plan p)

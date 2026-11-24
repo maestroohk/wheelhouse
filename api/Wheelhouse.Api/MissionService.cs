@@ -119,6 +119,17 @@ public sealed class MissionService : IHostedService
 
     public List<Mission> All() => missions.Values.OrderByDescending(m => m.CreatedAt).ToList();
 
+    /// <summary>
+    /// Missions as they are right now, for sending to a browser. Agents change missions on other threads, so each one
+    /// is copied under its own lock; handing the live objects to the serialiser can fail halfway through a list.
+    /// </summary>
+    public List<System.Text.Json.JsonElement> Snapshot() => All().Select(Snapshot).ToList();
+
+    public static System.Text.Json.JsonElement Snapshot(Mission m)
+    {
+        lock (m) return System.Text.Json.JsonSerializer.SerializeToElement(m, Json.Wire);
+    }
+
     public Mission Get(string id) => missions.TryGetValue(id, out var m) ? m : throw new WheelhouseException("That mission doesn't exist.");
 
     public List<MissionEvent> Events(string id)
